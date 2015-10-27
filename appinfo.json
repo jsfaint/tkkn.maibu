@@ -1,0 +1,19 @@
+{
+    "uuid": "",
+    "name": "特训",
+    "icon": "",
+    "version": "0.0.1",
+    "watchface": "false",
+    "resources": [
+        {
+            "type": "bmp",
+            "name": "RES_BITMAP_PLANE",
+            "file": "plane.bmp"
+        },
+        {
+            "type": "bmp",
+            "name": "RES_BITMAP_BULLET",
+            "file": "bullet.bmp"
+        }
+    ]
+}

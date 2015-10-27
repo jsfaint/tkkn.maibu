@@ -1,0 +1,5 @@
+build
+*.MWP
+*.log
+src/maibu_res.h
+*.maibu
