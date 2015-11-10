@@ -16,7 +16,7 @@ echo 正在编译...
 %TL_PATH%\arm-none-eabi-ld -r .\*.o -o .\build\maibu_code
 %TL_PATH%\arm-none-eabi-readelf -a .\build\maibu_code> elf.log
 
-REM del *.o
-REM echo 正在打包...
-REM %PACK_PATH%\pack.exe
+del *.o
+echo 正在打包...
+%PACK_PATH%\pack.exe
 pause
