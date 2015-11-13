@@ -61,7 +61,7 @@ static Bullet g_bullet[BULLET_NUM];
 //Window/Layer ID
 static int8_t g_plane_layer_id = -1;
 static int8_t g_message_layer_id = -1;
-static int8_t g_bullet_layer_id[BULLET_NUM] = {-1};
+static int8_t g_bullet_layer_id[BULLET_NUM];
 
 /* Function */
 void gameInit(P_Window pwindow);
@@ -78,7 +78,7 @@ void gamePlay(date_time_t dt, uint32_t millis, void* context);
 void messageUpdate(P_Window pwindow, char *str);
 void gamePauseToggle(void *context);
 void gameQuit(void *context);
-uint8_t math_random(void);
+uint8_t math_random(uint8_t seed);
 uint16_t math_distance(int8_t x1, int8_t y1, int8_t x2, int8_t y2);
 
 //Initial variables
@@ -92,7 +92,7 @@ void gameInit(P_Window pwindow)
 
     planeInit(pwindow);
 
-    //bulletInitAll(pwindow);
+    bulletInitAll(pwindow);
 }
 
 void messageInit(P_Window pwindow)
@@ -153,12 +153,12 @@ void movePlane(P_Window pwindow)
         PLANEY += 2;
     }
 
-    if (PLANEX <= 0)
+    if (PLANEX <= 1)
         PLANEX = 0;
     else if (PLANEX  >= (SCREEN_WIDTH-PLANE_W))
         PLANEX = (SCREEN_WIDTH - PLANE_W);
 
-    if (PLANEY <= 0)
+    if (PLANEY <= 1)
         PLANEY = 0;
     else if (PLANEY >= (SCREEN_HEIGHT-PLANE_H))
         PLANEY = (SCREEN_HEIGHT - PLANE_H);
@@ -194,25 +194,25 @@ void bulletInit(P_Window pwindow, uint8_t i)
     Bullet *pBullet = &g_bullet[i];
     P_GPoint pos = &pBullet->pos;
 
-    direct = math_random() % 4;
+    direct = math_random(i) % 4;
 
     switch(direct)
     {
         case 0: // y = 0
             pos->y = 0;
-            pos->x = math_random() % SCREEN_WIDTH;
+            pos->x = math_random(i) % SCREEN_WIDTH;
             break;
         case 1: // x = 0
             pos->x = 0;
-            pos->y = math_random() % SCREEN_HEIGHT;
+            pos->y = math_random(i) % SCREEN_HEIGHT;
             break;
         case 2: // y = max
-            pos->x = math_random() % SCREEN_WIDTH;
+            pos->x = math_random(i) % SCREEN_WIDTH;
             pos->y = (SCREEN_HEIGHT - BULLET_H);
             break;
         case 3: // x = max
             pos->x = (SCREEN_WIDTH - BULLET_W);
-            pos->y = math_random() % SCREEN_HEIGHT;
+            pos->y = math_random(i) % SCREEN_HEIGHT;
             break;
         default:
             break;
@@ -246,6 +246,8 @@ void bulletInitAll(P_Window pwindow)
 {
     uint8_t i;
 
+    memset(g_bullet_layer_id, -1, sizeof g_bullet_layer_id);
+
     for (i=0; i<BULLET_NUM; i++) {
         bulletInit(pwindow, i);
     }
@@ -255,8 +257,7 @@ void moveBullet(P_Window pwindow)
 {
     uint8_t i;
 
-    for (i=0; i<BULLET_NUM; i++)
-    {
+    for (i=0; i<BULLET_NUM; i++) {
         Bullet *pBullet = &g_bullet[i];
         P_GPoint pos = &pBullet->pos;
 
@@ -280,8 +281,7 @@ void moveBullet(P_Window pwindow)
 bool checkCollision(void)
 {
     int16_t i;
-    for (i=0; i<BULLET_NUM; i++)
-    {
+    for (i=0; i<BULLET_NUM; i++) {
         Bullet *pBullet = &g_bullet[i];
         P_GPoint pos = &pBullet->pos;
         if (math_distance(PLANEX+PLANE_W/2, PLANEY+PLANE_H/2, pos->x+BULLET_W/2, pos->y+BULLET_H/2) < (PLANE_W*BULLET_W/2))
@@ -306,7 +306,8 @@ void gamePlay(date_time_t dt, uint32_t millis, void* context)
 
             //Check collision
             if (checkCollision()) {
-                gameState = Game_Init;
+                //TODO: Add game result handle.
+                maibu_service_vibes_pulse(VibesPulseTypeShort, 0);
             }
         }
 
@@ -318,7 +319,7 @@ void messageUpdate(P_Window pwindow, char *str)
 {
     P_Layer layer = app_window_get_layer_by_id(pwindow, g_message_layer_id);
     if (NULL == layer) {
-        maibu_service_vibes_pulse(VibesPulseTypeLong, 1);
+        maibu_service_vibes_pulse(VibesPulseTypeLong, 0);
         return;
     }
 
@@ -350,8 +351,12 @@ void gamePauseToggle(void *context)
 
 void gameQuit(void *context)
 {
-    app_window_stack_pop((P_Window)context);
+    P_Window pwindow = (P_Window)context;
+    app_window_stack_pop(pwindow);
+
     gameState = Game_Init;
+    planeInit(pwindow);
+    bulletInitAll(pwindow);
 }
 
 // Function: main()
@@ -378,14 +383,14 @@ int main(int argc, char ** argv)
     return 0;
 } // End of main()
 
-uint8_t math_random(void)
+uint8_t math_random(uint8_t seed)
 {
     uint8_t num;
     struct date_time t;
 
     app_service_get_datetime(&t);
 
-    num = (uint8_t)((t.wday * t.hour * t.sec + t.min) & 0xff);
+    num = (uint8_t)((t.wday * t.hour * t.sec + t.min + seed * t.sec) & 0xff);
 
     return num;
 }
