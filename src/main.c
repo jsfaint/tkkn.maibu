@@ -1,7 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <math.h>
 
 #include "maibu_sdk.h"
 #include "maibu_res.h"
@@ -15,12 +14,13 @@
 #define SCREEN_HEIGHT   128
 
 //Accelerator
-#define ACCER_BASE      2048
-#define ACCER_THRESHOLD 25
+#define ACCER_BASE              2048
+#define ACCER_THRESHOLD_HIGH    25
+#define ACCER_THRESHOLD_LOW     50
 
 //Plane
-#define PLANE_W         16
-#define PLANE_H         16
+#define PLANE_W     16
+#define PLANE_H     16
 #define PLANE_ORIGIN_X   SCREEN_WIDTH/2 - PLANE_W/2
 #define PLANE_ORIGIN_Y   SCREEN_HEIGHT/2 - PLANE_H/2
 
@@ -31,7 +31,7 @@
 #define BULLET_W        4
 #define BULLET_H        4
 
-#define BULLET_NUM      20
+#define BULLET_NUM      5
 
 /* Enumeration */
 enum GameStatus{
@@ -47,8 +47,8 @@ typedef struct {
 /* Structure */
 typedef struct{
     GPoint pos;
-    float vx;
-    float vy;
+    uint8_t vx:4;
+    uint8_t vy:4;
 } Bullet;
 
 /* Global Variables */
@@ -70,12 +70,16 @@ P_Layer planeCreateLayer(uint8_t x, uint8_t y);
 void planeInit(P_Window pwindow);
 void movePlane(P_Window pwindow);
 P_Layer bulletCreateLayer(uint8_t x, uint8_t y);
-void bulletInit(P_Window window, uint8_t uIndex);
+void bulletInit(P_Window pwindow, uint8_t i);
 void bulletInitAll(P_Window pwindow);
+void moveBullet(P_Window pwindow);
+bool checkCollision(void);
 void gamePlay(date_time_t dt, uint32_t millis, void* context);
 void messageUpdate(P_Window pwindow, char *str);
 void gamePauseToggle(void *context);
 void gameQuit(void *context);
+uint8_t math_random(void);
+uint16_t math_distance(int8_t x1, int8_t y1, int8_t x2, int8_t y2);
 
 //Initial variables
 void gameInit(P_Window pwindow)
@@ -121,7 +125,6 @@ P_Layer planeCreateLayer(uint8_t x, uint8_t y)
 
 void planeInit(P_Window pwindow)
 {
-    // fix position with sprites size
     PLANEX = (SCREEN_WIDTH - PLANE_W)/2;
     PLANEY = (SCREEN_HEIGHT - PLANE_H)/2;
 
@@ -138,25 +141,17 @@ void movePlane(P_Window pwindow)
     //Calculate plane position
     maibu_get_accel_data(&x, &y, &z);
 
-    if (y >= (ACCER_BASE + ACCER_THRESHOLD)) {
-        PLANEX--;
-    } else if (y <= (ACCER_BASE - ACCER_THRESHOLD)) {
-        PLANEX++;
+    if (y >= (ACCER_BASE + ACCER_THRESHOLD_HIGH)) {
+        PLANEX -= 2;
+    } else if (y <= (ACCER_BASE - ACCER_THRESHOLD_LOW)) {
+        PLANEX += 2;
     }
 
-    if (x >= (ACCER_BASE + ACCER_THRESHOLD)) {
-        PLANEY--;
-    } else if (x <= (ACCER_BASE - ACCER_THRESHOLD)) {
-        PLANEY++;
+    if (x >= (ACCER_BASE + ACCER_THRESHOLD_HIGH)) {
+        PLANEY -= 2;
+    } else if (x <= (ACCER_BASE - ACCER_THRESHOLD_LOW)) {
+        PLANEY += 2;
     }
-
-    //FIXME: debug only
-    char str[30];
-
-    sprintf(str, "%d, %d", x, y);
-    messageUpdate(pwindow, str);
-    //FIXME: end
-
 
     if (PLANEX <= 0)
         PLANEX = 0;
@@ -177,7 +172,6 @@ void movePlane(P_Window pwindow)
     }
 }
 
-#if 0
 P_Layer bulletCreateLayer(uint8_t x, uint8_t y)
 {
     GRect frame = {{x, y}, {BULLET_H, BULLET_W}};
@@ -185,68 +179,117 @@ P_Layer bulletCreateLayer(uint8_t x, uint8_t y)
     GBitmap bitmap;
     res_get_user_bitmap(RES_BITMAP_BULLET, &bitmap);
 
-    LayerBitmap layer_bitmap = {*bitmap, frame, GAlignCenter};
+    LayerBitmap layer_bitmap = {bitmap, frame, GAlignCenter};
 
     P_Layer layer = app_layer_create_bitmap(&layer_bitmap);
 
     return layer;
 }
 
-void bulletInit(P_Window pwindow, uint8_t uIndex)
+void bulletInit(P_Window pwindow, uint8_t i)
 {
     uint8_t direct;
     int16_t radius;
 
-    Bullet *pBullet = &g_bullet[uIndex];
+    Bullet *pBullet = &g_bullet[i];
     P_GPoint pos = &pBullet->pos;
 
-    //FIXME: random function can't use in maibu OS
-    srand(time(0));
-    direct = rand() % 4;
+    direct = math_random() % 4;
 
     switch(direct)
     {
         case 0: // y = 0
             pos->y = 0;
-            pos->x = rand() % SCREEN_WIDTH;
+            pos->x = math_random() % SCREEN_WIDTH;
             break;
         case 1: // x = 0
             pos->x = 0;
-            pos->y = rand() % SCREEN_HEIGHT;
+            pos->y = math_random() % SCREEN_HEIGHT;
             break;
         case 2: // y = max
-            pos->x = rand() % SCREEN_WIDTH;
+            pos->x = math_random() % SCREEN_WIDTH;
             pos->y = (SCREEN_HEIGHT - BULLET_H);
             break;
         case 3: // x = max
             pos->x = (SCREEN_WIDTH - BULLET_W);
-            pos->y = rand() % SCREEN_HEIGHT;
+            pos->y = math_random() % SCREEN_HEIGHT;
             break;
         default:
             break;
     }
 
-    //TODO: calculate radius to get bullet vx,vy
-    /*radius = PA_GetAngle(pos->x, pos->y, PLANEX, PLANEY);*/
-    pBullet->vx = cos(radius);
-    pBullet->vy = -sin(radius);
-
-    P_Layer layer = bulletCreateLayer(pos->x, pos->y);
-    if (layer != NULL) {
-        g_bullet_layer_id[uIndex] = app_window_add_layer(pwindow, layer);
+    if (pos->x > PLANEX) {
+        pBullet->vx = -1;
+    } else if (pos->x < PLANEX) {
+        pBullet->vx = 1;
+    } else {
+        pBullet->vx = 0;
     }
 
+    if (pos->y > PLANEY) {
+        pBullet->vy = -1;
+    } else if (pos->x < PLANEY) {
+        pBullet->vy = 1;
+    } else {
+        pBullet->vy = 0;
+    }
+
+    if (g_bullet_layer_id[i] == -1) {
+        P_Layer layer = bulletCreateLayer(pos->x, pos->y);
+        if (layer != NULL) {
+            g_bullet_layer_id[i] = app_window_add_layer(pwindow, layer);
+        }
+    }
 }
 
 void bulletInitAll(P_Window pwindow)
 {
-    uint8_t uIndex;
+    uint8_t i;
 
-    for (uIndex=0; uIndex < BULLET_NUM; uIndex++) {
-        bulletInit(pwindow, uIndex);
+    for (i=0; i<BULLET_NUM; i++) {
+        bulletInit(pwindow, i);
     }
 }
-#endif
+
+void moveBullet(P_Window pwindow)
+{
+    uint8_t i;
+
+    for (i=0; i<BULLET_NUM; i++)
+    {
+        Bullet *pBullet = &g_bullet[i];
+        P_GPoint pos = &pBullet->pos;
+
+        if(pos->x > SCREEN_WIDTH || pos->x < 0 || pos->y > SCREEN_HEIGHT || pos->y < 0) {
+            bulletInit(pwindow, i);
+        }
+
+        pos->x += pBullet->vx;
+        pos->y += pBullet->vy;
+
+        //Move the plane to new position
+        P_Layer old_layer = app_window_get_layer_by_id(pwindow, g_bullet_layer_id[i]);
+
+        P_Layer layer = bulletCreateLayer(pos->x, pos->y);
+        if (layer != NULL) {
+            app_window_replace_layer(pwindow, old_layer, layer);
+        }
+    }
+}
+
+bool checkCollision(void)
+{
+    int16_t i;
+    for (i=0; i<BULLET_NUM; i++)
+    {
+        Bullet *pBullet = &g_bullet[i];
+        P_GPoint pos = &pBullet->pos;
+        if (math_distance(PLANEX+PLANE_W/2, PLANEY+PLANE_H/2, pos->x+BULLET_W/2, pos->y+BULLET_H/2) < (PLANE_W*BULLET_W/2))
+            return 1;
+    }
+
+    return 0;
+}
 
 void gamePlay(date_time_t dt, uint32_t millis, void* context)
 {
@@ -259,7 +302,12 @@ void gamePlay(date_time_t dt, uint32_t millis, void* context)
 
             movePlane(pwindow);
 
-            //TODO: move bullet
+            moveBullet(pwindow);
+
+            //Check collision
+            if (checkCollision()) {
+                gameState = Game_Init;
+            }
         }
 
         app_window_update(pwindow);
@@ -323,9 +371,28 @@ int main(int argc, char ** argv)
     gameInit(pwindow);
 
     //1000ms, 60fps
-    app_window_timer_subscribe(pwindow, 10, gamePlay, pwindow);
+    app_window_timer_subscribe(pwindow, 20, gamePlay, pwindow);
 
     app_window_stack_push(pwindow);
 
     return 0;
 } // End of main()
+
+uint8_t math_random(void)
+{
+    uint8_t num;
+    struct date_time t;
+
+    app_service_get_datetime(&t);
+
+    num = (uint8_t)((t.wday * t.hour * t.sec + t.min) & 0xff);
+
+    return num;
+}
+
+uint16_t math_distance(int8_t x1, int8_t y1, int8_t x2, int8_t y2)
+{
+    int16_t h = x1 - x2;
+    int16_t v = y1 - y2;
+    return(h*h + v*v);
+}
