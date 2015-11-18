@@ -1,12 +1,12 @@
 @echo off
-set TL_PATH=d:\maibu\gcc-arm-none-eabi-4_9-2015q2-20150609-win32\bin
+set TL_PATH=d:\maibu\gcc-arm-none-eabi\bin
 set PACK_PATH=D:\maibu\Pack\
 
+cls
 mkdir build
 
 echo 生成资源文件...
 %PACK_PATH%\pack.exe
-copy .\build\maibu_res.h .\src\maibu_res.h
 del tmp.log
 del .\build\maibu_code
 del OUT.maibu
