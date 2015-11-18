@@ -3,7 +3,7 @@
 #include <string.h>
 
 #include "maibu_sdk.h"
-#include "maibu_res.h"
+#include "../build/maibu_res.h"
 
 /************ Macro *************/
 #define TITLE "特训 for 麦步"
@@ -24,8 +24,8 @@
 #define PLANE_ORIGIN_X   SCREEN_WIDTH/2 - PLANE_W/2
 #define PLANE_ORIGIN_Y   SCREEN_HEIGHT/2 - PLANE_H/2
 
-#define PLANEX  g_plane.pos.x
-#define PLANEY  g_plane.pos.y
+#define PLANEX  g_plane.x
+#define PLANEY  g_plane.y
 
 //Bullet
 #define BULLET_W        4
@@ -41,7 +41,8 @@ enum GameStatus{
 };
 
 typedef struct {
-    GPoint pos;
+    uint8_t x;
+    uint8_t y;
 } Plane;
 
 /* Structure */
