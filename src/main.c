@@ -31,7 +31,10 @@
 #define BULLET_W        4
 #define BULLET_H        4
 
-#define BULLET_NUM      5
+#define BULLET_NUM      15
+
+#define BULLETX(pb)      (pb->x >> 8)
+#define BULLETY(pb)      (pb->y >> 8)
 
 /* Enumeration */
 enum GameStatus{
@@ -47,9 +50,10 @@ typedef struct {
 
 /* Structure */
 typedef struct{
-    GPoint pos;
-    uint8_t vx:4;
-    uint8_t vy:4;
+    int16_t x;
+    int16_t y;
+    int16_t vx;
+    int16_t vy;
 } Bullet;
 
 /* Global Variables */
@@ -81,6 +85,8 @@ void gamePauseToggle(void *context);
 void gameQuit(void *context);
 uint8_t math_random(uint8_t seed);
 uint16_t math_distance(int8_t x1, int8_t y1, int8_t x2, int8_t y2);
+int16_t bullet_vx(int8_t x1, int8_t y1, int8_t x2, int8_t y2);
+int16_t bullet_vy(int8_t x1, int8_t y1, int8_t x2, int8_t y2);
 
 //Initial variables
 void gameInit(P_Window pwindow)
@@ -192,51 +198,37 @@ void bulletInit(P_Window pwindow, uint8_t i)
     uint8_t direct;
     int16_t radius;
 
-    Bullet *pBullet = &g_bullet[i];
-    P_GPoint pos = &pBullet->pos;
+    Bullet *pb = &g_bullet[i];
 
     direct = math_random(i) % 4;
 
     switch(direct)
     {
         case 0: // y = 0
-            pos->y = 0;
-            pos->x = math_random(i) % SCREEN_WIDTH;
+            pb->y = 0;
+            pb->x = (math_random(i) % SCREEN_WIDTH)<<8;
             break;
         case 1: // x = 0
-            pos->x = 0;
-            pos->y = math_random(i) % SCREEN_HEIGHT;
+            pb->x = 0;
+            pb->y = (math_random(i) % SCREEN_HEIGHT)<<8;
             break;
         case 2: // y = max
-            pos->x = math_random(i) % SCREEN_WIDTH;
-            pos->y = (SCREEN_HEIGHT - BULLET_H);
+            pb->x = (math_random(i) % SCREEN_WIDTH)<<8;
+            pb->y = (SCREEN_HEIGHT - BULLET_H)<<8;
             break;
         case 3: // x = max
-            pos->x = (SCREEN_WIDTH - BULLET_W);
-            pos->y = math_random(i) % SCREEN_HEIGHT;
+            pb->x = (SCREEN_WIDTH - BULLET_W)<<8;
+            pb->y = (math_random(i) % SCREEN_HEIGHT)<<8;
             break;
         default:
             break;
     }
 
-    if (pos->x > PLANEX) {
-        pBullet->vx = -1;
-    } else if (pos->x < PLANEX) {
-        pBullet->vx = 1;
-    } else {
-        pBullet->vx = 0;
-    }
-
-    if (pos->y > PLANEY) {
-        pBullet->vy = -1;
-    } else if (pos->x < PLANEY) {
-        pBullet->vy = 1;
-    } else {
-        pBullet->vy = 0;
-    }
+    pb->vx = bullet_vx(PLANEX, PLANEY, BULLETX(pb), BULLETY(pb));
+    pb->vy = bullet_vy(PLANEX, PLANEY, BULLETX(pb), BULLETY(pb));
 
     if (g_bullet_layer_id[i] == -1) {
-        P_Layer layer = bulletCreateLayer(pos->x, pos->y);
+        P_Layer layer = bulletCreateLayer(BULLETX(pb), BULLETY(pb));
         if (layer != NULL) {
             g_bullet_layer_id[i] = app_window_add_layer(pwindow, layer);
         }
@@ -247,7 +239,7 @@ void bulletInitAll(P_Window pwindow)
 {
     uint8_t i;
 
-    memset(g_bullet_layer_id, -1, sizeof g_bullet_layer_id);
+    memset(g_bullet_layer_id, -1, sizeof(g_bullet_layer_id));
 
     for (i=0; i<BULLET_NUM; i++) {
         bulletInit(pwindow, i);
@@ -259,20 +251,19 @@ void moveBullet(P_Window pwindow)
     uint8_t i;
 
     for (i=0; i<BULLET_NUM; i++) {
-        Bullet *pBullet = &g_bullet[i];
-        P_GPoint pos = &pBullet->pos;
+        Bullet *pb = &g_bullet[i];
 
-        if(pos->x > SCREEN_WIDTH || pos->x < 0 || pos->y > SCREEN_HEIGHT || pos->y < 0) {
+        if(BULLETX(pb) > SCREEN_WIDTH || BULLETX(pb) < 0 || BULLETY(pb) > SCREEN_HEIGHT || BULLETY(pb) < 0) {
             bulletInit(pwindow, i);
         }
 
-        pos->x += pBullet->vx;
-        pos->y += pBullet->vy;
+        pb->x += pb->vx;
+        pb->y += pb->vy;
 
         //Move the plane to new position
         P_Layer old_layer = app_window_get_layer_by_id(pwindow, g_bullet_layer_id[i]);
 
-        P_Layer layer = bulletCreateLayer(pos->x, pos->y);
+        P_Layer layer = bulletCreateLayer(BULLETX(pb), BULLETY(pb));
         if (layer != NULL) {
             app_window_replace_layer(pwindow, old_layer, layer);
         }
@@ -283,9 +274,8 @@ bool checkCollision(void)
 {
     int16_t i;
     for (i=0; i<BULLET_NUM; i++) {
-        Bullet *pBullet = &g_bullet[i];
-        P_GPoint pos = &pBullet->pos;
-        if (math_distance(PLANEX+PLANE_W/2, PLANEY+PLANE_H/2, pos->x+BULLET_W/2, pos->y+BULLET_H/2) < (PLANE_W*BULLET_W/2))
+        Bullet *pb = &g_bullet[i];
+        if (math_distance(PLANEX+PLANE_W/2, PLANEY+PLANE_H/2, BULLETX(pb)+BULLET_W/2, BULLETY(pb)+BULLET_H/2) < (PLANE_W*BULLET_W))
             return 1;
     }
 
@@ -400,5 +390,47 @@ uint16_t math_distance(int8_t x1, int8_t y1, int8_t x2, int8_t y2)
 {
     int16_t h = x1 - x2;
     int16_t v = y1 - y2;
-    return(h*h + v*v);
+    return (h*h + v*v);
+}
+
+int16_t bullet_vx(int8_t x1, int8_t y1, int8_t x2, int8_t y2)
+{
+    int16_t r = math_distance(x1, y1, x2, y2);
+    int16_t a = x1 - x2;
+    uint16_t vx;
+
+    if (r == 0) {
+        vx = 256;
+    } else {
+        vx = (a*a)*256/r;
+    }
+
+    vx *= 2;
+
+    if (a < 0) {
+        return -vx;
+    } else {
+        return vx;
+    }
+}
+
+int16_t bullet_vy(int8_t x1, int8_t y1, int8_t x2, int8_t y2)
+{
+    int16_t r = math_distance(x1, y1, x2, y2);
+    int16_t a = y1 - y2;
+    uint16_t vy;
+
+    if (r == 0) {
+        vy = 256;
+    } else {
+        vy = (a*a)*256/r;
+    }
+
+    vy *= 2;
+
+    if (a < 0) {
+        return -vy;
+    } else {
+        return vy;
+    }
 }
