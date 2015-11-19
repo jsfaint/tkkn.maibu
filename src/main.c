@@ -31,7 +31,7 @@
 #define BULLET_W        4
 #define BULLET_H        4
 
-#define BULLET_NUM      15
+#define BULLET_NUM      10
 
 #define BULLETX(pb)      (pb->x >> 8)
 #define BULLETY(pb)      (pb->y >> 8)
@@ -73,11 +73,11 @@ void gameInit(P_Window pwindow);
 void messageInit(P_Window pwindow);
 P_Layer planeCreateLayer(uint8_t x, uint8_t y);
 void planeInit(P_Window pwindow);
-void movePlane(P_Window pwindow);
+void planeMove(P_Window pwindow);
 P_Layer bulletCreateLayer(uint8_t x, uint8_t y);
 void bulletInit(P_Window pwindow, uint8_t i);
 void bulletInitAll(P_Window pwindow);
-void moveBullet(P_Window pwindow);
+void bulletMove(P_Window pwindow);
 bool checkCollision(void);
 void gamePlay(date_time_t dt, uint32_t millis, void* context);
 void messageUpdate(P_Window pwindow, char *str);
@@ -116,6 +116,17 @@ void messageInit(P_Window pwindow)
     }
 }
 
+void timeDisplay(P_Window pwindow, uint32_t millis)
+{
+    g_count += millis;
+
+    char str[20];
+
+    sprintf(str, "%d.%02ds", g_count/1000000, g_count%1000000/10000);
+
+    messageUpdate(pwindow, str);
+}
+
 P_Layer planeCreateLayer(uint8_t x, uint8_t y)
 {
     GRect frame = {{x, y}, {PLANE_H, PLANE_W}};
@@ -141,7 +152,7 @@ void planeInit(P_Window pwindow)
     }
 }
 
-void movePlane(P_Window pwindow)
+void planeMove(P_Window pwindow)
 {
     int16_t x, y, z;
 
@@ -246,7 +257,7 @@ void bulletInitAll(P_Window pwindow)
     }
 }
 
-void moveBullet(P_Window pwindow)
+void bulletMove(P_Window pwindow)
 {
     uint8_t i;
 
@@ -288,15 +299,14 @@ void gamePlay(date_time_t dt, uint32_t millis, void* context)
 
     if (NULL != pwindow) {
         if (gameState == Game_Play) {
-            //Increase counter
-            g_count += millis;
+            timeDisplay(pwindow, millis);
 
-            movePlane(pwindow);
-
-            moveBullet(pwindow);
+            planeMove(pwindow);
+            bulletMove(pwindow);
 
             //Check collision
             if (checkCollision()) {
+                g_count = 0;
                 //TODO: Add game result handle.
                 maibu_service_vibes_pulse(VibesPulseTypeShort, 0);
             }
@@ -345,6 +355,7 @@ void gameQuit(void *context)
     P_Window pwindow = (P_Window)context;
     app_window_stack_pop(pwindow);
 
+    g_count = 0;
     gameState = Game_Init;
     planeInit(pwindow);
     bulletInitAll(pwindow);
@@ -367,7 +378,7 @@ int main(int argc, char ** argv)
     gameInit(pwindow);
 
     //1000ms, 60fps
-    app_window_timer_subscribe(pwindow, 20, gamePlay, pwindow);
+    app_window_timer_subscribe(pwindow, 30, gamePlay, pwindow);
 
     app_window_stack_push(pwindow);
 
