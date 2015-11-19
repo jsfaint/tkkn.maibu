@@ -6,9 +6,10 @@
 #include "../build/maibu_res.h"
 
 /************ Macro *************/
-#define TITLE "特训 for 麦步"
-#define AUTHOR "Jia Sui"
-#define EMAIL "jsfaint@gmail.com"
+#define TITLE   "特训 for 麦步"
+#define AUTHOR  "Jia Sui"
+#define EMAIL   "jsfaint@gmail.com"
+#define VERSION "0.1"
 
 #define SCREEN_WIDTH    128
 #define SCREEN_HEIGHT   128
@@ -104,8 +105,9 @@ void gameInit(P_Window pwindow)
 
 void messageInit(P_Window pwindow)
 {
-    g_count = 0;
-    char str[] = TITLE;
+    char str[40];
+
+    sprintf(str, "%s %s", TITLE, VERSION);
 
     GRect frame = {{0, 0}, {12, 128}};
     LayerText lt = {str, frame, GAlignTopLeft, U_ASCII_ARIAL_12, 0};
@@ -336,18 +338,17 @@ void gamePauseToggle(void *context)
     switch (gameState) {
         case Game_Play:
             gameState = Game_Pause;
+
             sprintf(str, "pause");
+            messageUpdate(pwindow, str);
             break;
         case Game_Init:
         case Game_Pause:
             gameState = Game_Play;
-            sprintf(str, TITLE);
             break;
         default:
             break;
     }
-
-    messageUpdate(pwindow, str);
 }
 
 void gameQuit(void *context)
