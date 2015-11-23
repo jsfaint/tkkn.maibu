@@ -14,6 +14,8 @@
 #define SCREEN_WIDTH    128
 #define SCREEN_HEIGHT   128
 
+#define TIMER_INTERVAL  30
+
 //Accelerator
 #define ACCER_BASE              2048
 #define ACCER_THRESHOLD_HIGH    25
@@ -59,7 +61,8 @@ typedef struct{
 
 /* Global Variables */
 static uint8_t gameState = Game_Init;
-static int32_t g_count;
+static uint32_t g_count;
+static uint32_t g_old_count;
 
 static Plane g_plane;
 static Bullet g_bullet[BULLET_NUM];
@@ -72,7 +75,8 @@ static int8_t g_bullet_layer_id[BULLET_NUM];
 /* Function */
 void gameInit(P_Window pwindow);
 void messageInit(P_Window pwindow);
-P_Layer planeCreateLayer(uint8_t x, uint8_t y);
+void timeDisplay(P_Window pwindow, uint32_t millis);
+inline P_Layer planeCreateLayer(uint8_t x, uint8_t y);
 void planeInit(P_Window pwindow);
 void planeMove(P_Window pwindow);
 P_Layer bulletCreateLayer(uint8_t x, uint8_t y);
@@ -88,6 +92,9 @@ uint8_t math_random(uint8_t seed);
 uint16_t math_distance(int8_t x1, int8_t y1, int8_t x2, int8_t y2);
 int16_t bullet_vx(int8_t x1, int8_t y1, int8_t x2, int8_t y2);
 int16_t bullet_vy(int8_t x1, int8_t y1, int8_t x2, int8_t y2);
+void gameCounterReset(void);
+void gameCounterGet(uint32_t *sec, uint32_t *ms);
+void gameCounterUpdate(uint32_t millis);
 
 //Initial variables
 void gameInit(P_Window pwindow)
@@ -95,6 +102,8 @@ void gameInit(P_Window pwindow)
     if (NULL == pwindow) {
         return;
     }
+
+    gameCounterReset();
 
     messageInit(pwindow);
 
@@ -120,11 +129,12 @@ void messageInit(P_Window pwindow)
 
 void timeDisplay(P_Window pwindow, uint32_t millis)
 {
-    g_count += millis;
+    char str[40];
+    uint32_t sec, ms;
 
-    char str[20];
+    gameCounterGet(&sec, &ms);
 
-    sprintf(str, "%d.%02ds", g_count/1000000, g_count%1000000/10000);
+    sprintf(str, "%d.%02ds", sec, ms);
 
     messageUpdate(pwindow, str);
 }
@@ -300,6 +310,8 @@ void gamePlay(date_time_t dt, uint32_t millis, void* context)
     P_Window pwindow = (P_Window)context;
 
     if (NULL != pwindow) {
+        gameCounterUpdate(millis);
+
         if (gameState == Game_Play) {
             timeDisplay(pwindow, millis);
 
@@ -308,7 +320,7 @@ void gamePlay(date_time_t dt, uint32_t millis, void* context)
 
             //Check collision
             if (checkCollision()) {
-                g_count = 0;
+                gameCounterReset();
                 //TODO: Add game result handle.
                 maibu_service_vibes_pulse(VibesPulseTypeShort, 0);
             }
@@ -356,7 +368,7 @@ void gameQuit(void *context)
     P_Window pwindow = (P_Window)context;
     app_window_stack_pop(pwindow);
 
-    g_count = 0;
+    gameCounterReset();
     gameState = Game_Init;
     planeInit(pwindow);
     bulletInitAll(pwindow);
@@ -378,8 +390,7 @@ int main(int argc, char ** argv)
 
     gameInit(pwindow);
 
-    //1000ms, 60fps
-    app_window_timer_subscribe(pwindow, 30, gamePlay, pwindow);
+    app_window_timer_subscribe(pwindow, TIMER_INTERVAL, gamePlay, pwindow);
 
     app_window_stack_push(pwindow);
 
@@ -445,4 +456,30 @@ int16_t bullet_vy(int8_t x1, int8_t y1, int8_t x2, int8_t y2)
     } else {
         return vy;
     }
+}
+
+void gameCounterReset(void)
+{
+    g_count = 0;
+    g_old_count = 0;
+}
+
+void gameCounterGet(uint32_t *sec, uint32_t *ms)
+{
+    *sec = g_count/1000;
+    *ms = g_count%1000/10;
+}
+
+void gameCounterUpdate(uint32_t millis)
+{
+    if (g_old_count == 0) {
+        g_old_count = millis;
+        return;
+    }
+
+    if (gameState == Game_Play) {
+        g_count += (millis - g_old_count);
+    }
+
+    g_old_count = millis;
 }
