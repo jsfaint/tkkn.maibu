@@ -167,31 +167,32 @@ void planeInit(P_Window pwindow)
 void planeMove(P_Window pwindow)
 {
     int16_t x, y, z;
+    const uint8_t step = 2;
 
     //Calculate plane position
     maibu_get_accel_data(&x, &y, &z);
 
     if (y >= (ACCER_BASE + ACCER_THRESHOLD_HIGH)) {
-        PLANEX -= 2;
+        PLANEX -= step;
     } else if (y <= (ACCER_BASE - ACCER_THRESHOLD_LOW)) {
-        PLANEX += 2;
+        PLANEX += step;
     }
 
     if (x >= (ACCER_BASE + ACCER_THRESHOLD_HIGH)) {
-        PLANEY -= 2;
+        PLANEY -= step;
     } else if (x <= (ACCER_BASE - ACCER_THRESHOLD_LOW)) {
-        PLANEY += 2;
+        PLANEY += step;
     }
 
-    if (PLANEX <= 1)
-        PLANEX = 0;
-    else if (PLANEX  >= (SCREEN_WIDTH-PLANE_W))
-        PLANEX = (SCREEN_WIDTH - PLANE_W);
+    if (PLANEX <= step)
+        PLANEX = step;
+    else if (PLANEX  >= (SCREEN_WIDTH-PLANE_W-step))
+        PLANEX = (SCREEN_WIDTH - PLANE_W - step);
 
-    if (PLANEY <= 1)
-        PLANEY = 0;
-    else if (PLANEY >= (SCREEN_HEIGHT-PLANE_H))
-        PLANEY = (SCREEN_HEIGHT - PLANE_H);
+    if (PLANEY <= step)
+        PLANEY = step;
+    else if (PLANEY >= (SCREEN_HEIGHT-PLANE_H-step))
+        PLANEY = (SCREEN_HEIGHT - PLANE_H - step);
 
     //Move the plane to new position
     P_Layer old_layer = app_window_get_layer_by_id(pwindow, g_plane_layer_id);
