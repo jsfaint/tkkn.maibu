@@ -9,7 +9,7 @@
 #define TITLE   "特训 for 麦步"
 #define AUTHOR  "Jia Sui"
 #define EMAIL   "jsfaint@gmail.com"
-#define VERSION "0.1"
+#define VERSION "0.2"
 
 #define SCREEN_WIDTH    128
 #define SCREEN_HEIGHT   128
@@ -44,6 +44,7 @@ enum GameStatus {
     Game_Init,
     Game_Play,
     Game_Pause,
+    Game_Result,
 };
 
 enum PlaneStyle {
@@ -102,6 +103,7 @@ int16_t bullet_vy(int8_t x1, int8_t y1, int8_t x2, int8_t y2);
 void gameCounterReset(void);
 void gameCounterGet(uint32_t *sec, uint32_t *ms);
 void gameCounterUpdate(uint32_t millis);
+void planeExplode(P_Window pwindow);
 
 //Initial variables
 void gameInit(P_Window pwindow)
@@ -121,6 +123,10 @@ void gameInit(P_Window pwindow)
 
 void messageInit(P_Window pwindow)
 {
+    if (g_message_layer_id != -1) {
+        return;
+    }
+
     char str[40];
 
     sprintf(str, "%s %s", TITLE, VERSION);
@@ -161,6 +167,7 @@ P_Layer planeCreateLayer(enum PlaneStyle style, uint8_t x, uint8_t y)
             break;
         case PLANE_EXPLODE:
             res_get_user_bitmap(RES_BITMAP_PLANE_EXPLODE, &bitmap_plane);
+            break;
         case PLANE_NORMAL:
         default:
             res_get_user_bitmap(RES_BITMAP_PLANE, &bitmap_plane);
@@ -179,9 +186,11 @@ void planeInit(P_Window pwindow)
     PLANEX = PLANE_ORIGIN_X;
     PLANEY = PLANE_ORIGIN_Y;
 
-    P_Layer layer = planeCreateLayer(PLANE_NORMAL, PLANEX, PLANEY);
-    if (layer != NULL) {
-        g_plane_layer_id = app_window_add_layer(pwindow, layer);
+    if (g_plane_layer_id == -1) {
+        P_Layer layer = planeCreateLayer(PLANE_NORMAL, PLANEX, PLANEY);
+        if (layer != NULL) {
+            g_plane_layer_id = app_window_add_layer(pwindow, layer);
+        }
     }
 }
 
@@ -289,7 +298,9 @@ void bulletInitAll(P_Window pwindow)
 {
     uint8_t i;
 
-    memset(g_bullet_layer_id, -1, sizeof(g_bullet_layer_id));
+    if (g_bullet_layer_id[0] != -1) {
+        memset(g_bullet_layer_id, -1, sizeof(g_bullet_layer_id));
+    }
 
     for (i=0; i<BULLET_NUM; i++) {
         bulletInit(pwindow, i);
@@ -347,10 +358,11 @@ void gamePlay(date_time_t dt, uint32_t millis, void* context)
 
             //Check collision
             if (checkCollision()) {
-                gameCounterReset();
-                //TODO: Add game result handle.
-                maibu_service_vibes_pulse(VibesPulseTypeShort, 0);
+                planeExplode(pwindow);
+                gameState = Game_Result;
             }
+        } else if (gameState == Game_Result) {
+            //TODO: game statistic handle
         }
 
         app_window_update(pwindow);
@@ -381,11 +393,12 @@ void gamePauseToggle(void *context)
             sprintf(str, "pause");
             messageUpdate(pwindow, str);
             break;
+        case Game_Result:
+            gameInit(pwindow);
         case Game_Init:
         case Game_Pause:
-            gameState = Game_Play;
-            break;
         default:
+            gameState = Game_Play;
             break;
     }
 }
@@ -509,4 +522,18 @@ void gameCounterUpdate(uint32_t millis)
     }
 
     g_old_count = millis;
+}
+
+void planeExplode(P_Window pwindow)
+{
+    //Move the plane to new position
+    P_Layer old_layer = app_window_get_layer_by_id(pwindow, g_plane_layer_id);
+
+    P_Layer layer = planeCreateLayer(PLANE_EXPLODE, PLANEX, PLANEY);
+    if (layer != NULL) {
+        app_window_replace_layer(pwindow, old_layer, layer);
+    }
+
+    maibu_service_vibes_pulse(VibesPulseTypeShort, 0);
+    return;
 }
