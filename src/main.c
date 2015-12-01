@@ -40,10 +40,17 @@
 #define BULLETY(pb)      (pb->y >> 8)
 
 /* Enumeration */
-enum GameStatus{
+enum GameStatus {
     Game_Init,
     Game_Play,
     Game_Pause,
+};
+
+enum PlaneStyle {
+    PLANE_NORMAL,
+    PLANE_LEFT,
+    PLANE_RIGHT,
+    PLANE_EXPLODE
 };
 
 typedef struct {
@@ -76,7 +83,7 @@ static int8_t g_bullet_layer_id[BULLET_NUM];
 void gameInit(P_Window pwindow);
 void messageInit(P_Window pwindow);
 void timeDisplay(P_Window pwindow, uint32_t millis);
-inline P_Layer planeCreateLayer(uint8_t x, uint8_t y);
+inline P_Layer planeCreateLayer(enum PlaneStyle style, uint8_t x, uint8_t y);
 void planeInit(P_Window pwindow);
 void planeMove(P_Window pwindow);
 P_Layer bulletCreateLayer(uint8_t x, uint8_t y);
@@ -139,12 +146,26 @@ void timeDisplay(P_Window pwindow, uint32_t millis)
     messageUpdate(pwindow, str);
 }
 
-P_Layer planeCreateLayer(uint8_t x, uint8_t y)
+P_Layer planeCreateLayer(enum PlaneStyle style, uint8_t x, uint8_t y)
 {
     GRect frame = {{x, y}, {PLANE_H, PLANE_W}};
 
     GBitmap bitmap_plane;
-    res_get_user_bitmap(RES_BITMAP_PLANE, &bitmap_plane);
+
+    switch (style) {
+        case PLANE_LEFT:
+            res_get_user_bitmap(RES_BITMAP_PLANE_LEFT, &bitmap_plane);
+            break;
+        case PLANE_RIGHT:
+            res_get_user_bitmap(RES_BITMAP_PLANE_RIGHT, &bitmap_plane);
+            break;
+        case PLANE_EXPLODE:
+            res_get_user_bitmap(RES_BITMAP_PLANE_EXPLODE, &bitmap_plane);
+        case PLANE_NORMAL:
+        default:
+            res_get_user_bitmap(RES_BITMAP_PLANE, &bitmap_plane);
+            break;
+    }
 
     LayerBitmap layer_bitmap = {bitmap_plane, frame, GAlignCenter};
 
@@ -158,7 +179,7 @@ void planeInit(P_Window pwindow)
     PLANEX = (SCREEN_WIDTH - PLANE_W)/2;
     PLANEY = (SCREEN_HEIGHT - PLANE_H)/2;
 
-    P_Layer layer = planeCreateLayer(PLANEX, PLANEY);
+    P_Layer layer = planeCreateLayer(PLANE_NORMAL, PLANEX, PLANEY);
     if (layer != NULL) {
         g_plane_layer_id = app_window_add_layer(pwindow, layer);
     }
@@ -168,14 +189,19 @@ void planeMove(P_Window pwindow)
 {
     int16_t x, y, z;
     const uint8_t step = 2;
+    enum PlaneStyle style;
 
     //Calculate plane position
     maibu_get_accel_data(&x, &y, &z);
 
     if (y >= (ACCER_BASE + ACCER_THRESHOLD_HIGH)) {
         PLANEX -= step;
+        style = PLANE_LEFT;
     } else if (y <= (ACCER_BASE - ACCER_THRESHOLD_LOW)) {
         PLANEX += step;
+        style = PLANE_RIGHT;
+    } else {
+        style = PLANE_NORMAL;
     }
 
     if (x >= (ACCER_BASE + ACCER_THRESHOLD_HIGH)) {
@@ -197,7 +223,7 @@ void planeMove(P_Window pwindow)
     //Move the plane to new position
     P_Layer old_layer = app_window_get_layer_by_id(pwindow, g_plane_layer_id);
 
-    P_Layer layer = planeCreateLayer(PLANEX, PLANEY);
+    P_Layer layer = planeCreateLayer(style, PLANEX, PLANEY);
     if (layer != NULL) {
         app_window_replace_layer(pwindow, old_layer, layer);
     }

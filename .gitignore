@@ -3,3 +3,4 @@ build
 *.log
 src/maibu_res.h
 *.maibu
+*.mai

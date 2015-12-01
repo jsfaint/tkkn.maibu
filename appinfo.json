@@ -1,10 +1,15 @@
 {
     "uuid": "8d15c6fd3a3ae9f9cb4e0c186f2cf08a",
     "name": "特训",
-    "icon": "RES_BITMAP_PLANE",
-    "version": "0.0.1",
+    "icon": "RES_BITMAP_LOGO",
+    "version": "0.0.2",
     "watchface": "false",
     "resources": [
+        {
+            "type": "bmp",
+            "name": "RES_BITMAP_LOGO",
+            "file": "logo.bmp"
+        },
         {
             "type": "bmp",
             "name": "RES_BITMAP_PLANE",
@@ -14,6 +19,21 @@
             "type": "bmp",
             "name": "RES_BITMAP_BULLET",
             "file": "bullet.bmp"
+        },
+        {
+            "type": "bmp",
+            "name": "RES_BITMAP_PLANE_LEFT",
+            "file": "plane_left.bmp"
+        },
+        {
+            "type": "bmp",
+            "name": "RES_BITMAP_PLANE_RIGHT",
+            "file": "plane_right.bmp"
+        },
+        {
+            "type": "bmp",
+            "name": "RES_BITMAP_PLANE_EXPLODE",
+            "file": "explode.bmp"
         }
     ]
 }
