@@ -81,15 +81,15 @@ static int8_t g_message_layer_id = -1;
 static int8_t g_bullet_layer_id[BULLET_NUM];
 
 /* Function */
-void gameInit(P_Window pwindow);
+void gameInit(P_Window pwindow, uint8_t init);
 void messageInit(P_Window pwindow);
 void timeDisplay(P_Window pwindow, uint32_t millis);
 inline P_Layer planeCreateLayer(enum PlaneStyle style, uint8_t x, uint8_t y);
-void planeInit(P_Window pwindow);
+void planeInit(P_Window pwindow, uint8_t init);
 void planeMove(P_Window pwindow);
 P_Layer bulletCreateLayer(uint8_t x, uint8_t y);
 void bulletInit(P_Window pwindow, uint8_t i);
-void bulletInitAll(P_Window pwindow);
+void bulletInitAll(P_Window pwindow, uint8_t init);
 void bulletMove(P_Window pwindow);
 bool checkCollision(void);
 void gamePlay(date_time_t dt, uint32_t millis, void* context);
@@ -106,7 +106,7 @@ void gameCounterUpdate(uint32_t millis);
 void planeExplode(P_Window pwindow);
 
 //Initial variables
-void gameInit(P_Window pwindow)
+void gameInit(P_Window pwindow, uint8_t init)
 {
     if (NULL == pwindow) {
         return;
@@ -114,11 +114,13 @@ void gameInit(P_Window pwindow)
 
     gameCounterReset();
 
-    messageInit(pwindow);
+    if (init) {
+        messageInit(pwindow);
+    }
 
-    planeInit(pwindow);
+    planeInit(pwindow, init);
 
-    bulletInitAll(pwindow);
+    bulletInitAll(pwindow, init);
 }
 
 void messageInit(P_Window pwindow)
@@ -181,12 +183,12 @@ P_Layer planeCreateLayer(enum PlaneStyle style, uint8_t x, uint8_t y)
     return layer;
 }
 
-void planeInit(P_Window pwindow)
+void planeInit(P_Window pwindow, uint8_t init)
 {
     PLANEX = PLANE_ORIGIN_X;
     PLANEY = PLANE_ORIGIN_Y;
 
-    if (g_plane_layer_id == -1) {
+    if (init) {
         P_Layer layer = planeCreateLayer(PLANE_NORMAL, PLANEX, PLANEY);
         if (layer != NULL) {
             g_plane_layer_id = app_window_add_layer(pwindow, layer);
@@ -294,11 +296,11 @@ void bulletInit(P_Window pwindow, uint8_t i)
     }
 }
 
-void bulletInitAll(P_Window pwindow)
+void bulletInitAll(P_Window pwindow, uint8_t init)
 {
     uint8_t i;
 
-    if (g_bullet_layer_id[0] != -1) {
+    if (init) {
         memset(g_bullet_layer_id, -1, sizeof(g_bullet_layer_id));
     }
 
@@ -394,7 +396,7 @@ void gamePauseToggle(void *context)
             messageUpdate(pwindow, str);
             break;
         case Game_Result:
-            gameInit(pwindow);
+            gameInit(pwindow, false);
         case Game_Init:
         case Game_Pause:
         default:
@@ -408,10 +410,9 @@ void gameQuit(void *context)
     P_Window pwindow = (P_Window)context;
     app_window_stack_pop(pwindow);
 
-    gameCounterReset();
     gameState = Game_Init;
-    planeInit(pwindow);
-    bulletInitAll(pwindow);
+
+    gameInit(pwindow, false);
 }
 
 // Function: main()
@@ -428,7 +429,7 @@ int main(int argc, char ** argv)
     app_window_click_subscribe(pwindow, ButtonIdUp, gamePauseToggle);
     app_window_click_subscribe(pwindow, ButtonIdBack, gameQuit);
 
-    gameInit(pwindow);
+    gameInit(pwindow, true);
 
     app_window_timer_subscribe(pwindow, TIMER_INTERVAL, gamePlay, pwindow);
 
