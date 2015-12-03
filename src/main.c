@@ -176,8 +176,8 @@ P_Layer planeCreateLayer(enum PlaneStyle style, uint8_t x, uint8_t y)
 
 void planeInit(P_Window pwindow)
 {
-    PLANEX = (SCREEN_WIDTH - PLANE_W)/2;
-    PLANEY = (SCREEN_HEIGHT - PLANE_H)/2;
+    PLANEX = PLANE_ORIGIN_X;
+    PLANEY = PLANE_ORIGIN_Y;
 
     P_Layer layer = planeCreateLayer(PLANE_NORMAL, PLANEX, PLANEY);
     if (layer != NULL) {
