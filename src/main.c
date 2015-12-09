@@ -85,7 +85,6 @@ static int8_t g_down_button_layer_id = -1;
 
 /* Function */
 void gameInit(P_Window pwindow, bool init);
-void gameMessageInit(P_Window pwindow);
 void timeDisplay(P_Window pwindow, uint32_t millis);
 P_Layer planeCreateLayer(enum PlaneStyle style, uint8_t x, uint8_t y);
 void planeInit(P_Window pwindow, uint8_t init);
@@ -122,26 +121,9 @@ void gameInit(P_Window pwindow, bool init)
 
     gameCounterReset();
 
-    if (init) {
-        gameMessageInit(pwindow);
-    }
-
     planeInit(pwindow, init);
 
     bulletInitAll(pwindow, init);
-}
-
-void gameMessageInit(P_Window pwindow)
-{
-    if (g_message_layer_id != -1) {
-        return;
-    }
-
-    char str[40];
-
-    sprintf(str, "%s %s", TITLE, VERSION);
-
-    g_message_layer_id = textOut(pwindow, str, 0, 0, 12, 128, GAlignTopLeft, U_ASCII_ARIAL_12);
 }
 
 void timeDisplay(P_Window pwindow, uint32_t millis)
@@ -569,6 +551,10 @@ int8_t textOut(P_Window pwindow, char *str, uint8_t x, uint8_t y, uint8_t height
 
 void gameMenu(P_Window pwindow)
 {
+    char str[40];
+    sprintf(str, "%s %s", TITLE, VERSION);
+    g_message_layer_id = textOut(pwindow, str, 0, 0, 12, 128, GAlignTopLeft, U_ASCII_ARIAL_12);
+
     g_up_button_layer_id = textOut(pwindow, "开始||", 87, 4, 12, 38, GAlignRight, U_ASCII_ARIALBD_12);
     g_down_button_layer_id = textOut(pwindow, "关于||", 87, 110, 12, 38, GAlignRight, U_ASCII_ARIALBD_12);
 }
