@@ -42,17 +42,20 @@
 /* Enumeration */
 enum GameStatus {
     Game_Init,
+    Game_Menu,
     Game_Play,
     Game_Pause,
     Game_Result,
     Game_About,
+    Game_Quit,
 };
 
 enum PlaneStyle {
     PLANE_NORMAL,
     PLANE_LEFT,
     PLANE_RIGHT,
-    PLANE_EXPLODE
+    PLANE_EXPLODE,
+    PLANE_EXPLODE2,
 };
 
 typedef struct {
@@ -77,14 +80,15 @@ static Plane g_plane;
 static Bullet g_bullet[BULLET_NUM];
 
 //Window/Layer ID
-static int8_t g_plane_layer_id = -1;
+static int8_t g_plane_layer_id;
 static int8_t g_bullet_layer_id[BULLET_NUM];
 
-static int8_t g_message_layer_id = -1;
-static int8_t g_up_button_layer_id = -1;
-static int8_t g_down_button_layer_id = -1;
+static int8_t g_message_layer_id;
+static int8_t g_up_button_layer_id;
+static int8_t g_down_button_layer_id;
 
 /* Function */
+void init(void);
 void gameInit(P_Window pwindow, bool init);
 void timeDisplay(P_Window pwindow, uint32_t millis);
 P_Layer planeCreateLayer(enum PlaneStyle style, uint8_t x, uint8_t y);
@@ -95,11 +99,12 @@ void bulletInit(P_Window pwindow, uint8_t i);
 void bulletInitAll(P_Window pwindow, uint8_t init);
 void bulletMove(P_Window pwindow);
 bool checkCollision(void);
-void gamePlay(date_time_t dt, uint32_t millis, void* context);
+void run(date_time_t dt, uint32_t millis, void* context);
 void gameMessageUpdate(P_Window pwindow, int8_t id, char *str);
 void upPressed(void *context);
 void backPressed(void *context);
-uint8_t math_random(uint8_t seed);
+void downPressed(void *context);
+uint8_t math_random(uint8_t seed, uint8_t min, uint8_t max);
 uint16_t math_distance(int8_t x1, int8_t y1, int8_t x2, int8_t y2);
 int16_t bullet_vx(int8_t x1, int8_t y1, int8_t x2, int8_t y2);
 int16_t bullet_vy(int8_t x1, int8_t y1, int8_t x2, int8_t y2);
@@ -107,13 +112,26 @@ void gameCounterReset(void);
 void gameCounterGet(uint32_t *sec, uint32_t *ms);
 void gameCounterUpdate(uint32_t millis);
 void planeExplode(P_Window pwindow);
-void textOut(P_Window pwindow, int8_t *layer_id, char *str, uint8_t x, uint8_t y, uint8_t height, uint8_t width, enum GAlign alignment, uint8_t type);
+P_Layer textOut(char *str, uint8_t x, uint8_t y, uint8_t height, uint8_t width, enum GAlign alignment, uint8_t type);
+void gameLayer(P_Window pwindow, int8_t *layer_id, P_Layer layer);
 void gameMenu(P_Window pwindow);
 void gameMessageVisible(P_Window pwindow, int8_t id, bool status);
-void gameMessageVisibleAll(P_Window pwindow, bool status);
 void bulletVisibleAll(P_Window pwindow, bool status);
-void downPressed(void *context);
 void gameResult(P_Window pwindow);
+
+//Init global variables
+void init(void)
+{
+    uint8_t i;
+
+    g_plane_layer_id = -1;
+
+    memset(g_bullet_layer_id, -1, sizeof(g_bullet_layer_id));
+
+    g_message_layer_id = -1;
+    g_up_button_layer_id = -1;
+    g_down_button_layer_id = -1;
+}
 
 //Initial variables
 void gameInit(P_Window pwindow, bool init)
@@ -147,20 +165,16 @@ P_Layer planeCreateLayer(enum PlaneStyle style, uint8_t x, uint8_t y)
 
     GBitmap bitmap_plane;
 
-    switch (style) {
-        case PLANE_LEFT:
-            res_get_user_bitmap(RES_BITMAP_PLANE_LEFT, &bitmap_plane);
-            break;
-        case PLANE_RIGHT:
-            res_get_user_bitmap(RES_BITMAP_PLANE_RIGHT, &bitmap_plane);
-            break;
-        case PLANE_EXPLODE:
-            res_get_user_bitmap(RES_BITMAP_PLANE_EXPLODE, &bitmap_plane);
-            break;
-        case PLANE_NORMAL:
-        default:
-            res_get_user_bitmap(RES_BITMAP_PLANE, &bitmap_plane);
-            break;
+    if (style == PLANE_NORMAL) {
+        res_get_user_bitmap(RES_BITMAP_PLANE, &bitmap_plane);
+    } else if (style == PLANE_LEFT) {
+        res_get_user_bitmap(RES_BITMAP_PLANE_LEFT, &bitmap_plane);
+    } else if (style == PLANE_RIGHT) {
+        res_get_user_bitmap(RES_BITMAP_PLANE_RIGHT, &bitmap_plane);
+    } else if (style == PLANE_EXPLODE) {
+        res_get_user_bitmap(RES_BITMAP_PLANE_EXPLODE, &bitmap_plane);
+    } else if (style == PLANE_EXPLODE2) {
+        res_get_user_bitmap(RES_BITMAP_PLANE_EXPLODE, &bitmap_plane);
     }
 
     LayerBitmap layer_bitmap = {bitmap_plane, frame, GAlignCenter};
@@ -218,13 +232,8 @@ void planeMove(P_Window pwindow)
     else if (PLANEY >= (SCREEN_HEIGHT-PLANE_H-step))
         PLANEY = (SCREEN_HEIGHT - PLANE_H - step);
 
-    //Move the plane to new position
-    P_Layer old_layer = app_window_get_layer_by_id(pwindow, g_plane_layer_id);
-
     P_Layer layer = planeCreateLayer(style, PLANEX, PLANEY);
-    if (layer != NULL) {
-        app_window_replace_layer(pwindow, old_layer, layer);
-    }
+    gameLayer(pwindow, &g_plane_layer_id, layer);
 }
 
 P_Layer bulletCreateLayer(uint8_t x, uint8_t y)
@@ -247,28 +256,24 @@ void bulletInit(P_Window pwindow, uint8_t i)
 
     Bullet *pb = &g_bullet[i];
 
-    direct = math_random(i) % 4;
+    direct = math_random(i, 0, 4);
 
-    switch(direct)
-    {
-        case 0: // y = 0
-            pb->y = 0;
-            pb->x = (math_random(i) % SCREEN_WIDTH)<<8;
-            break;
-        case 1: // x = 0
-            pb->x = 0;
-            pb->y = (math_random(i) % SCREEN_HEIGHT)<<8;
-            break;
-        case 2: // y = max
-            pb->x = (math_random(i) % SCREEN_WIDTH)<<8;
-            pb->y = (SCREEN_HEIGHT - BULLET_H)<<8;
-            break;
-        case 3: // x = max
-            pb->x = (SCREEN_WIDTH - BULLET_W)<<8;
-            pb->y = (math_random(i) % SCREEN_HEIGHT)<<8;
-            break;
-        default:
-            break;
+    if (direct == 0) {
+        //y = 0
+        pb->y = 0;
+        pb->x = (math_random(i, 0, SCREEN_WIDTH))<<8;
+    } else if (direct == 1) {
+        //x = 0
+        pb->x = 0;
+        pb->y = (math_random(i, 0, SCREEN_HEIGHT))<<8;
+    } else if (direct == 2) {
+        //y = max
+        pb->x = (math_random(i, 0, SCREEN_WIDTH))<<8;
+        pb->y = (SCREEN_HEIGHT - BULLET_H)<<8;
+    } else if (direct ==3) {
+        // x = max
+        pb->x = (SCREEN_WIDTH - BULLET_W)<<8;
+        pb->y = (math_random(i, 0, SCREEN_HEIGHT))<<8;
     }
 
     pb->vx = bullet_vx(PLANEX, PLANEY, BULLETX(pb), BULLETY(pb));
@@ -276,19 +281,13 @@ void bulletInit(P_Window pwindow, uint8_t i)
 
     if (g_bullet_layer_id[i] == -1) {
         P_Layer layer = bulletCreateLayer(BULLETX(pb), BULLETY(pb));
-        if (layer != NULL) {
-            g_bullet_layer_id[i] = app_window_add_layer(pwindow, layer);
-        }
+        gameLayer(pwindow, &g_bullet_layer_id[i], layer);
     }
 }
 
 void bulletInitAll(P_Window pwindow, uint8_t init)
 {
     uint8_t i;
-
-    if (init) {
-        memset(g_bullet_layer_id, -1, sizeof(g_bullet_layer_id));
-    }
 
     for (i=0; i<BULLET_NUM; i++) {
         bulletInit(pwindow, i);
@@ -313,13 +312,8 @@ void bulletMove(P_Window pwindow)
         pb->x += pb->vx;
         pb->y += pb->vy;
 
-        //Move the plane to new position
-        P_Layer old_layer = app_window_get_layer_by_id(pwindow, g_bullet_layer_id[i]);
-
         P_Layer layer = bulletCreateLayer(BULLETX(pb), BULLETY(pb));
-        if (layer != NULL) {
-            app_window_replace_layer(pwindow, old_layer, layer);
-        }
+        gameLayer(pwindow, &g_bullet_layer_id[i], layer);
     }
 }
 
@@ -335,31 +329,33 @@ bool checkCollision(void)
     return 0;
 }
 
-void gamePlay(date_time_t dt, uint32_t millis, void* context)
+void run(date_time_t dt, uint32_t millis, void* context)
 {
     P_Window pwindow = (P_Window)context;
 
-    if (NULL != pwindow) {
-        gameCounterUpdate(millis);
-
-        if (gameState == Game_Play) {
-            timeDisplay(pwindow, millis);
-
-            planeMove(pwindow);
-            bulletMove(pwindow);
-
-            //Check collision
-            if (checkCollision()) {
-                planeExplode(pwindow);
-                gameState = Game_Result;
-            }
-        } else if (gameState == Game_Result) {
-            //TODO: game statistic handle
-            gameResult(pwindow);
-        }
-
-        app_window_update(pwindow);
+    if (pwindow == NULL) {
+        return;
     }
+
+    gameCounterUpdate(millis);
+
+    if (gameState == Game_Play) {
+        timeDisplay(pwindow, millis);
+
+        planeMove(pwindow);
+        bulletMove(pwindow);
+
+        //Check collision
+        if (checkCollision()) {
+            planeExplode(pwindow);
+            gameState = Game_Result;
+        }
+    } else if (gameState == Game_Result) {
+        //TODO: game statistic handle
+        gameResult(pwindow);
+    }
+
+    app_window_update(pwindow);
 }
 
 void gameMessageUpdate(P_Window pwindow, int8_t id, char *str)
@@ -386,24 +382,22 @@ void upPressed(void *context)
     P_Window pwindow = (P_Window)context;
     int i;
 
-    switch (gameState) {
-        case Game_About:
-            //Don't handle up botton in Game_About state
-            break;
-        case Game_Play:
-            gameState = Game_Pause;
-            gameMessageUpdate(pwindow, g_message_layer_id, "pause");
-            break;
-        case Game_Result:
-            gameInit(pwindow, false);
-        case Game_Init:
-            gameMessageVisible(pwindow, g_up_button_layer_id, false);
-            gameMessageVisible(pwindow, g_down_button_layer_id, false);
-            bulletVisibleAll(pwindow, true);
-        case Game_Pause:
-        default:
-            gameState = Game_Play;
-            break;
+    if (gameState == Game_Play) {
+        gameState = Game_Pause;
+        gameMessageUpdate(pwindow, g_message_layer_id, "pause");
+    } else if (gameState == Game_Result) {
+        gameInit(pwindow, false);
+        gameMessageVisible(pwindow, g_up_button_layer_id, false);
+        gameMessageVisible(pwindow, g_down_button_layer_id, false);
+        bulletVisibleAll(pwindow, true);
+        gameState = Game_Play;
+    } else if (gameState == Game_Init) {
+        gameMessageVisible(pwindow, g_up_button_layer_id, false);
+        gameMessageVisible(pwindow, g_down_button_layer_id, false);
+        bulletVisibleAll(pwindow, true);
+        gameState = Game_Play;
+    } else if (gameState == Game_Pause) {
+        gameState = Game_Play;
     }
 }
 
@@ -412,18 +406,28 @@ void backPressed(void *context)
     P_Window pwindow = (P_Window)context;
 
     if (gameState == Game_About) {
-        //About
-        textOut(pwindow, &g_down_button_layer_id, "关于||", 87, 110, 12, 38, GAlignRight, U_ASCII_ARIALBD_12);
-
-        //Show all UI element.
-        gameMessageVisibleAll(pwindow, true);
-
         gameState = Game_Init;
     } else {
         //Quit game
         app_window_stack_pop(pwindow);
         gameState = Game_Init;
         gameInit(pwindow, false);
+
+        init();
+    }
+}
+
+void downPressed(void *context)
+{
+    P_Window pwindow = (P_Window)context;
+
+    //This button not work when playing.
+    if (gameState == Game_Play || gameState == Game_About) {
+        return;
+    }
+
+    if (gameState != Game_About) {
+        gameState = Game_About;
     }
 }
 
@@ -431,6 +435,8 @@ void backPressed(void *context)
 int main(int argc, char ** argv)
 {
     P_Window pwindow = NULL;
+
+    init();
 
     //Create main window
     pwindow = app_window_create();
@@ -446,14 +452,14 @@ int main(int argc, char ** argv)
 
     gameInit(pwindow, true);
 
-    app_window_timer_subscribe(pwindow, TIMER_INTERVAL, gamePlay, pwindow);
+    app_window_timer_subscribe(pwindow, TIMER_INTERVAL, run, pwindow);
 
     app_window_stack_push(pwindow);
 
     return 0;
 } // End of main()
 
-uint8_t math_random(uint8_t seed)
+uint8_t math_random(uint8_t seed, uint8_t min, uint8_t max)
 {
     uint8_t num;
     struct date_time t;
@@ -461,6 +467,7 @@ uint8_t math_random(uint8_t seed)
     app_service_get_datetime(&t);
 
     num = (uint8_t)((t.wday * t.hour * t.sec + t.min + seed * t.sec) & 0xff);
+    num = (max - min) * num / 256 + min;
 
     return num;
 }
@@ -542,24 +549,31 @@ void gameCounterUpdate(uint32_t millis)
 
 void planeExplode(P_Window pwindow)
 {
-    //Move the plane to new position
-    P_Layer old_layer = app_window_get_layer_by_id(pwindow, g_plane_layer_id);
-
     P_Layer layer = planeCreateLayer(PLANE_EXPLODE, PLANEX, PLANEY);
-    if (layer != NULL) {
-        app_window_replace_layer(pwindow, old_layer, layer);
-    }
+    gameLayer(pwindow, &g_plane_layer_id, layer);
 
     maibu_service_vibes_pulse(VibesPulseTypeShort, 0);
     return;
 }
 
-void textOut(P_Window pwindow, int8_t *layer_id, char *str, uint8_t x, uint8_t y, uint8_t height, uint8_t width, enum GAlign alignment, uint8_t type)
+P_Layer textOut(char *str, uint8_t x, uint8_t y, uint8_t height, uint8_t width, enum GAlign alignment, uint8_t type)
 {
     GRect frame = {{x, y}, {height, width}};
     LayerText lt = {str, frame, alignment, type, 0};
     P_Layer layer = app_layer_create_text(&lt);
-    app_layer_set_bg_color(layer, GColorBlack);
+
+    return layer;
+}
+
+void gameLayer(P_Window pwindow, int8_t *layer_id, P_Layer layer)
+{
+    if (pwindow == NULL) {
+        return;
+    }
+
+    if (layer == NULL) {
+        return;
+    }
 
     if (*layer_id == -1) {
         *layer_id =  app_window_add_layer(pwindow, layer);
@@ -571,12 +585,18 @@ void textOut(P_Window pwindow, int8_t *layer_id, char *str, uint8_t x, uint8_t y
 
 void gameMenu(P_Window pwindow)
 {
+    P_Layer layer;
+
     char str[40];
     sprintf(str, "%s %s", TITLE, VERSION);
-    textOut(pwindow, &g_message_layer_id, str, 0, 0, 12, 128, GAlignTopLeft, U_ASCII_ARIAL_12);
+    layer = textOut(str, 0, 0, 12, 128, GAlignTopLeft, U_ASCII_ARIAL_12);
+    gameLayer(pwindow, &g_message_layer_id, layer);
 
-    textOut(pwindow, &g_up_button_layer_id, "开始||", 87, 4, 12, 38, GAlignRight, U_ASCII_ARIALBD_12);
-    textOut(pwindow, &g_down_button_layer_id, "关于||", 87, 110, 12, 38, GAlignRight, U_ASCII_ARIALBD_12);
+    layer = textOut("开始||", 87, 4, 12, 38, GAlignRight, U_ASCII_ARIALBD_12);
+    gameLayer(pwindow, &g_up_button_layer_id, layer);
+
+    layer = textOut("关于||", 87, 110, 12, 38, GAlignRight, U_ASCII_ARIALBD_12);
+    gameLayer(pwindow, &g_down_button_layer_id, layer);
 }
 
 void gameMessageVisible(P_Window pwindow, int8_t id, bool status)
@@ -593,17 +613,6 @@ void gameMessageVisible(P_Window pwindow, int8_t id, bool status)
     maibu_layer_set_visible_status(layer, status);
 }
 
-void gameMessageVisibleAll(P_Window pwindow, bool status)
-{
-    if (pwindow == NULL) {
-        return;
-    }
-
-    gameMessageVisible(pwindow, g_plane_layer_id, status);
-    gameMessageVisible(pwindow, g_message_layer_id, status);
-    gameMessageVisible(pwindow, g_up_button_layer_id, status);
-}
-
 void bulletVisibleAll(P_Window pwindow, bool status)
 {
     int i;
@@ -611,26 +620,6 @@ void bulletVisibleAll(P_Window pwindow, bool status)
     for (i=0; i<BULLET_NUM; i++) {
         gameMessageVisible(pwindow, g_bullet_layer_id[i], true);
     }
-}
-
-void downPressed(void *context)
-{
-    P_Window pwindow = (P_Window)context;
-
-    //This button not work when playing.
-    if (gameState == Game_Play || gameState == Game_About) {
-        return;
-    }
-
-    if (gameState != Game_About) {
-        gameState = Game_About;
-    }
-
-    //Hide all UI element except about layer
-    gameMessageVisibleAll(pwindow, false);
-
-    //FIXME: this is just a simple hint message
-    textOut(pwindow, &g_down_button_layer_id, TITLE, 10, 64, 12, 128, GAlignCenter, U_ASCII_ARIAL_12);
 }
 
 void gameResult(P_Window pwindow)
