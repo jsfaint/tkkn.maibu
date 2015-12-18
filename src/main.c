@@ -84,8 +84,6 @@ static int8_t g_plane_layer_id;
 static int8_t g_bullet_layer_id[BULLET_NUM];
 
 static int8_t g_message_layer_id;
-static int8_t g_up_button_layer_id;
-static int8_t g_down_button_layer_id;
 
 /* Function */
 void init(void);
@@ -104,6 +102,7 @@ void gameMessageUpdate(P_Window pwindow, int8_t id, char *str);
 void upPressed(void *context);
 void backPressed(void *context);
 void downPressed(void *context);
+void selectPressed(void *context);
 uint8_t math_random(uint8_t seed, uint8_t min, uint8_t max);
 uint16_t math_distance(int8_t x1, int8_t y1, int8_t x2, int8_t y2);
 int16_t bullet_vx(int8_t x1, int8_t y1, int8_t x2, int8_t y2);
@@ -129,8 +128,6 @@ void init(void)
     memset(g_bullet_layer_id, -1, sizeof(g_bullet_layer_id));
 
     g_message_layer_id = -1;
-    g_up_button_layer_id = -1;
-    g_down_button_layer_id = -1;
 }
 
 //Initial variables
@@ -387,13 +384,9 @@ void upPressed(void *context)
         gameMessageUpdate(pwindow, g_message_layer_id, "pause");
     } else if (gameState == Game_Result) {
         gameInit(pwindow, false);
-        gameMessageVisible(pwindow, g_up_button_layer_id, false);
-        gameMessageVisible(pwindow, g_down_button_layer_id, false);
         bulletVisibleAll(pwindow, true);
         gameState = Game_Play;
     } else if (gameState == Game_Init) {
-        gameMessageVisible(pwindow, g_up_button_layer_id, false);
-        gameMessageVisible(pwindow, g_down_button_layer_id, false);
         bulletVisibleAll(pwindow, true);
         gameState = Game_Play;
     } else if (gameState == Game_Pause) {
@@ -412,8 +405,6 @@ void backPressed(void *context)
         app_window_stack_pop(pwindow);
         gameState = Game_Init;
         gameInit(pwindow, false);
-
-        init();
     }
 }
 
@@ -429,6 +420,10 @@ void downPressed(void *context)
     if (gameState != Game_About) {
         gameState = Game_About;
     }
+}
+
+void selectPressed(void *context)
+{
 }
 
 // Function: main()
@@ -591,12 +586,6 @@ void gameMenu(P_Window pwindow)
     sprintf(str, "%s %s", TITLE, VERSION);
     layer = textOut(str, 0, 0, 12, 128, GAlignTopLeft, U_ASCII_ARIAL_12);
     gameLayer(pwindow, &g_message_layer_id, layer);
-
-    layer = textOut("开始||", 87, 4, 12, 38, GAlignRight, U_ASCII_ARIALBD_12);
-    gameLayer(pwindow, &g_up_button_layer_id, layer);
-
-    layer = textOut("关于||", 87, 110, 12, 38, GAlignRight, U_ASCII_ARIALBD_12);
-    gameLayer(pwindow, &g_down_button_layer_id, layer);
 }
 
 void gameMessageVisible(P_Window pwindow, int8_t id, bool status)
@@ -630,7 +619,23 @@ void gameResult(P_Window pwindow)
     for (i = 0; i < BULLET_NUM; i++) {
         gameMessageVisible(pwindow, g_bullet_layer_id[i], false);
     }
+}
 
-    gameMessageVisible(pwindow, g_up_button_layer_id, true);
-    gameMessageVisible(pwindow, g_down_button_layer_id, true);
+void gameUIShow(enum GameStatus stat)
+{
+    if (stat == Game_Init) {
+        
+    } else if (stat == Game_Menu) {
+        
+    } else if (stat == Game_Play) {
+        
+    } else if (stat == Game_Pause) {
+        
+    } else if (stat == Game_Result) {
+        
+    } else if (stat == Game_About) {
+        
+    } else if (stat == Game_Quit) {
+        
+    }
 }

@@ -34,6 +34,31 @@
             "type": "bmp",
             "name": "RES_BITMAP_PLANE_EXPLODE",
             "file": "explode.bmp"
+        },
+        {
+            "type": "bmp",
+            "name": "RES_BITMAP_PLANE_EXPLODE2",
+            "file": "explode2.bmp"
+        },
+        {
+            "type": "bmp",
+            "name": "RES_BITMAP_ARROW",
+            "file": "arrow.bmp"
+        },
+        {
+            "type": "bmp",
+            "name": "RES_BITMAP_BANNER",
+            "file": "banner.bmp"
+        },
+        {
+            "type": "bmp",
+            "name": "RES_BITMAP_START",
+            "file": "start.bmp"
+        },
+        {
+            "type": "bmp",
+            "name": "RES_BITMAP_RESTART",
+            "file": "restart.bmp"
         }
     ]
 }
