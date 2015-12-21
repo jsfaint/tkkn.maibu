@@ -59,6 +59,11 @@
             "type": "bmp",
             "name": "RES_BITMAP_RESTART",
             "file": "restart.bmp"
+        },
+        {
+            "type": "bmp",
+            "name": "RES_BITMAP_LOSE",
+            "file": "lose.bmp"
         }
     ]
 }

@@ -40,7 +40,7 @@
 #define BULLETY(pb)      (pb->y >> 8)
 
 /* Enumeration */
-enum GameStatus {
+enum GameState {
     Game_Init,
     Game_Menu,
     Game_Play,
@@ -72,10 +72,9 @@ typedef struct{
 } Bullet;
 
 /* Global Variables */
-static uint8_t gameState = Game_Init;
+static uint8_t g_gamestate = Game_Init;
 static uint32_t g_count;
 static uint32_t g_old_count;
-static uint8_t g_menu_selected;
 
 static Plane g_plane;
 static Bullet g_bullet[BULLET_NUM];
@@ -92,11 +91,17 @@ static int8_t g_bullet_layer_id[BULLET_NUM];
 static int8_t g_message_layer_id;
 
 //Game restart
+static int8_t g_menu_lose_layer_id;
+static int8_t g_menu_score_layer_id;
 static int8_t g_menu_restart_layer_id;
 
 /* Function */
 void initVariables(void);
 void gameInit(P_Window pwindow, bool init);
+void upPressed(void *context);
+void backPressed(void *context);
+void downPressed(void *context);
+void selectPressed(void *context);
 void timeDisplay(P_Window pwindow, uint32_t millis);
 P_Layer planeCreateLayer(enum PlaneStyle style, uint8_t x, uint8_t y);
 void planeInit(P_Window pwindow, uint8_t init);
@@ -108,16 +113,12 @@ void bulletMove(P_Window pwindow);
 bool checkCollision(void);
 void run(date_time_t dt, uint32_t millis, void* context);
 void gameMessageUpdate(P_Window pwindow, int8_t id, char *str);
-void upPressed(void *context);
-void backPressed(void *context);
-void downPressed(void *context);
-void selectPressed(void *context);
 uint8_t math_random(uint8_t seed, uint8_t min, uint8_t max);
 uint16_t math_distance(int8_t x1, int8_t y1, int8_t x2, int8_t y2);
 int16_t bullet_vx(int8_t x1, int8_t y1, int8_t x2, int8_t y2);
 int16_t bullet_vy(int8_t x1, int8_t y1, int8_t x2, int8_t y2);
 void gameCounterReset(void);
-void gameCounterGet(uint32_t *sec, uint32_t *ms);
+char* gameCounterGet(char *str);
 void gameCounterUpdate(uint32_t millis);
 void planeExplode(P_Window pwindow);
 P_Layer textOut(char *str, uint8_t x, uint8_t y, uint8_t height, uint8_t width, enum GAlign alignment, uint8_t type);
@@ -125,7 +126,9 @@ P_Layer bmpOut(uint8_t x, uint8_t y, uint8_t height, uint8_t wdith, uint16_t res
 void gameLayer(P_Window pwindow, int8_t *layer_id, P_Layer layer);
 void gameResult(P_Window pwindow);
 void layerVisible(P_Window pwindow, int8_t id, bool status);
-void gameLayerVisible(P_Window pwindow, enum GameStatus stat);
+void gameLayerVisible(P_Window pwindow, enum GameState stat);
+void gameStateSet(enum GameState stat);
+enum GameState gameStateGet(void);
 
 //Init global variables
 void initVariables(void)
@@ -140,7 +143,9 @@ void initVariables(void)
     memset(g_bullet_layer_id, -1, sizeof(g_bullet_layer_id));
     g_message_layer_id = -1;
 
-    //Restart
+    //Result
+    g_menu_lose_layer_id = -1;
+    g_menu_score_layer_id = -1;
     g_menu_restart_layer_id = -1;
 }
 
@@ -151,8 +156,6 @@ void gameInit(P_Window pwindow, bool init)
         return;
     }
 
-    g_menu_selected = 0;
-
     gameCounterReset();
 
     planeInit(pwindow, init);
@@ -160,15 +163,76 @@ void gameInit(P_Window pwindow, bool init)
     bulletInitAll(pwindow);
 }
 
+
+void backPressed(void *context)
+{
+    P_Window pwindow = (P_Window)context;
+    enum GameState stat = gameStateGet();
+
+    if (stat == Game_About) {
+        gameStateSet(Game_Menu);
+        gameLayerVisible(pwindow, Game_Menu);
+    } else if (stat == Game_Play) {
+        gameStateSet(Game_Menu);
+        gameLayerVisible(pwindow, Game_Menu);
+    } else if (stat == Game_Result) {
+        gameStateSet(Game_Menu);
+        gameLayerVisible(pwindow, Game_Menu);
+    } else if (stat == Game_Pause) {
+        //NOTE: do nothing.
+    } else {
+        //Quit game
+        app_window_stack_pop(pwindow);
+        gameInit(pwindow, false);
+    }
+}
+
+void upPressed(void *context)
+{
+    P_Window pwindow = (P_Window)context;
+    enum GameState stat = gameStateGet();
+    int i;
+
+    if (stat == Game_Play) {
+        gameStateSet(Game_Pause);
+        gameMessageUpdate(pwindow, g_message_layer_id, "pause");
+    } else if (stat == Game_Pause) {
+        gameStateSet(Game_Play);
+    } else if (stat == Game_Menu) {
+        //TODO: menu select up
+    }
+}
+
+
+void downPressed(void *context)
+{
+    P_Window pwindow = (P_Window)context;
+
+    //TODO: menu select down
+}
+
+void selectPressed(void *context)
+{
+    P_Window pwindow = (P_Window)context;
+    enum GameState stat = gameStateGet();
+
+    if (stat == Game_Menu) {
+        gameLayerVisible(pwindow, Game_Play);
+        gameInit(pwindow, false);
+        gameStateSet(Game_Play);
+    } else if (stat == Game_Result) {
+        gameLayerVisible(pwindow, Game_Play);
+        gameInit(pwindow, false);
+        gameStateSet(Game_Play);
+    }
+}
+
 void timeDisplay(P_Window pwindow, uint32_t millis)
 {
     char str[40];
-    uint32_t sec, ms;
 
-    gameCounterGet(&sec, &ms);
-
-    sprintf(str, "%d.%02ds", sec, ms);
-
+    gameCounterGet(str);
+    sprintf(str, "%ss", str);
     gameMessageUpdate(pwindow, g_message_layer_id, str);
 }
 
@@ -326,6 +390,7 @@ bool checkCollision(void)
 void run(date_time_t dt, uint32_t millis, void* context)
 {
     P_Window pwindow = (P_Window)context;
+    enum GameState stat = gameStateGet();
 
     if (pwindow == NULL) {
         return;
@@ -333,7 +398,7 @@ void run(date_time_t dt, uint32_t millis, void* context)
 
     gameCounterUpdate(millis);
 
-    if (gameState == Game_Play) {
+    if (stat == Game_Play) {
         timeDisplay(pwindow, millis);
 
         planeMove(pwindow);
@@ -341,12 +406,9 @@ void run(date_time_t dt, uint32_t millis, void* context)
 
         //Check collision
         if (checkCollision()) {
-            planeExplode(pwindow);
-            gameState = Game_Result;
+            maibu_service_vibes_pulse(VibesPulseTypeShort, 0);
+            gameResult(pwindow);
         }
-    } else if (gameState == Game_Result) {
-        //TODO: game statistic handle
-        gameResult(pwindow);
     }
 
     app_window_update(pwindow);
@@ -370,99 +432,6 @@ void gameMessageUpdate(P_Window pwindow, int8_t id, char *str)
 
     app_layer_set_text_text(layer, str);
 }
-
-void backPressed(void *context)
-{
-    P_Window pwindow = (P_Window)context;
-
-    if (gameState == Game_About) {
-        gameState = Game_Menu;
-    } else if (gameState == Game_Play) {
-        gameState = Game_Menu;
-
-        //TODO: set visible
-    } else {
-        //Quit game
-        app_window_stack_pop(pwindow);
-        gameInit(pwindow, false);
-    }
-}
-
-void upPressed(void *context)
-{
-    P_Window pwindow = (P_Window)context;
-    int i;
-
-    if (gameState == Game_Play) {
-        gameState = Game_Pause;
-        gameMessageUpdate(pwindow, g_message_layer_id, "pause");
-    } else if (gameState == Game_Menu) {
-        //TODO: menu select up
-    }
-}
-
-
-void downPressed(void *context)
-{
-    P_Window pwindow = (P_Window)context;
-
-    //This button not work when playing.
-    if (gameState != Game_Menu) {
-        return;
-    }
-
-    //TODO: menu select down
-}
-
-void selectPressed(void *context)
-{
-    P_Window pwindow = (P_Window)context;
-
-    if (gameState != Game_Menu && gameState != Game_Result) {
-        return;
-    }
-
-    if (gameState == Game_Menu) {
-        if (g_menu_selected == 0) {
-            gameLayerVisible(pwindow, Game_Play);
-            gameState = Game_Play;
-        }
-    } else if (gameState == Game_Result) {
-        gameInit(pwindow, false);
-        gameLayerVisible(pwindow, Game_Play);
-        gameState = Game_Play;
-    }
-}
-
-// Function: main()
-int main(int argc, char ** argv)
-{
-    P_Window pwindow = NULL;
-
-    initVariables();
-
-    //Create main window
-    pwindow = app_window_create();
-    if (NULL == pwindow) {
-        return 0;
-    }
-
-    gameLayerInit(pwindow);
-    gameInit(pwindow, true);
-
-    gameLayerVisible(pwindow, Game_Menu);
-
-    app_window_timer_subscribe(pwindow, TIMER_INTERVAL, run, pwindow);
-
-    app_window_click_subscribe(pwindow, ButtonIdUp, upPressed);
-    app_window_click_subscribe(pwindow, ButtonIdBack, backPressed);
-    app_window_click_subscribe(pwindow, ButtonIdDown, downPressed);
-    app_window_click_subscribe(pwindow, ButtonIdSelect, selectPressed);
-
-    app_window_stack_push(pwindow);
-
-    return 0;
-} // End of main()
 
 uint8_t math_random(uint8_t seed, uint8_t min, uint8_t max)
 {
@@ -532,10 +501,15 @@ void gameCounterReset(void)
     g_old_count = 0;
 }
 
-void gameCounterGet(uint32_t *sec, uint32_t *ms)
+char* gameCounterGet(char *str)
 {
-    *sec = g_count/1000;
-    *ms = g_count%1000/10;
+    if (str == NULL) {
+        return NULL;
+    }
+
+    sprintf(str, "%d.%02d", g_count/1000, g_count%1000/10);
+
+    return str;
 }
 
 void gameCounterUpdate(uint32_t millis)
@@ -545,7 +519,7 @@ void gameCounterUpdate(uint32_t millis)
         return;
     }
 
-    if (gameState == Game_Play) {
+    if (gameStateGet() == Game_Play) {
         g_count += (millis - g_old_count);
     }
 
@@ -554,11 +528,11 @@ void gameCounterUpdate(uint32_t millis)
 
 void planeExplode(P_Window pwindow)
 {
-    P_Layer layer = planeCreateLayer(PLANE_EXPLODE, PLANEX, PLANEY);
+    P_Layer layer;
+    layer = planeCreateLayer(PLANE_EXPLODE, PLANEX, PLANEY);
     gameLayer(pwindow, &g_plane_layer_id, layer);
 
     maibu_service_vibes_pulse(VibesPulseTypeShort, 0);
-    return;
 }
 
 P_Layer textOut(char *str, uint8_t x, uint8_t y, uint8_t height, uint8_t width, enum GAlign alignment, uint8_t type)
@@ -625,13 +599,33 @@ void gameLayerInit(P_Window pwindow)
     gameLayer(pwindow, &g_message_layer_id, layer);
 
     /* Result */
+    //lose
+    layer = bmpOut(32, 20, 30, 64, RES_BITMAP_LOSE);
+    gameLayer(pwindow, &g_menu_lose_layer_id, layer);
+    //score
+    layer = textOut("", 0, 58, 14, 128, GAlignCenter, U_GBK_SIMSUN_12);
+    gameLayer(pwindow, &g_menu_score_layer_id, layer);
     //restart
-    layer = bmpOut(34, 95, 9, 41, RES_BITMAP_RESTART);
+    layer = bmpOut(49, 95, 9, 41, RES_BITMAP_RESTART);
     gameLayer(pwindow, &g_menu_restart_layer_id, layer);
 }
 
 void gameResult(P_Window pwindow)
 {
+    char str[10];
+    char buf[50];
+
+    planeExplode(pwindow);
+
+    sprintf(buf, "生存时间%s秒", gameCounterGet(str));
+    P_Layer layer = app_window_get_layer_by_id(pwindow, g_menu_score_layer_id);
+    if (NULL == layer) {
+        return;
+    }
+    app_layer_set_text_text(layer, buf);
+
+    gameLayerVisible(pwindow, Game_Result);
+    gameStateSet(Game_Result);
 }
 
 void layerVisible(P_Window pwindow, int8_t id, bool status)
@@ -648,7 +642,7 @@ void layerVisible(P_Window pwindow, int8_t id, bool status)
     maibu_layer_set_visible_status(layer, status);
 }
 
-void gameLayerVisible(P_Window pwindow, enum GameStatus stat)
+void gameLayerVisible(P_Window pwindow, enum GameState stat)
 {
     //Game menu
     bool banner;
@@ -661,17 +655,19 @@ void gameLayerVisible(P_Window pwindow, enum GameStatus stat)
     bool message;
 
     //Game result
+    bool lose;
+    bool score;
     bool restart;
 
-    if (stat == Game_Init) {
-        //TODO
-    } else if (stat == Game_Menu) {
+    if (stat == Game_Menu) {
         banner = true;
         arrow = true;
         start = true;
         plane = false;
         bullet = false;
         message = false;
+        lose = false;
+        score = false;
         restart = false;
     } else if (stat == Game_Play) {
         banner = false;
@@ -680,20 +676,22 @@ void gameLayerVisible(P_Window pwindow, enum GameStatus stat)
         plane = true;
         bullet = true;
         message = true;
+        lose = false;
+        score = false;
         restart = false;
     } else if (stat == Game_Pause) {
-
+        //TODO
     } else if (stat == Game_Result) {
         banner = false;
         arrow = true;
         start = false;
         plane = false;
         bullet = false;
-        message = true;
+        message = false;
+        lose = true;
+        score = true;
         restart = true;
     } else if (stat == Game_About) {
-        //TODO
-    } else if (stat == Game_Quit) {
         //TODO
     }
 
@@ -711,5 +709,49 @@ void gameLayerVisible(P_Window pwindow, enum GameStatus stat)
     layerVisible(pwindow, g_message_layer_id, message);
 
     //Result
+    layerVisible(pwindow, g_menu_lose_layer_id, lose);
+    layerVisible(pwindow, g_menu_score_layer_id, score);
     layerVisible(pwindow, g_menu_restart_layer_id, restart);
 }
+
+void gameStateSet(enum GameState stat)
+{
+    g_gamestate = stat;
+}
+
+enum GameState gameStateGet(void)
+{
+    return g_gamestate;
+}
+
+// Function: main()
+int main(int argc, char ** argv)
+{
+    P_Window pwindow = NULL;
+
+    initVariables();
+
+    //Create main window
+    pwindow = app_window_create();
+    if (NULL == pwindow) {
+        return 0;
+    }
+
+    gameLayerInit(pwindow);
+    gameInit(pwindow, true);
+
+    gameLayerVisible(pwindow, Game_Menu);
+
+    app_window_timer_subscribe(pwindow, TIMER_INTERVAL, run, pwindow);
+
+    app_window_click_subscribe(pwindow, ButtonIdUp, upPressed);
+    app_window_click_subscribe(pwindow, ButtonIdBack, backPressed);
+    app_window_click_subscribe(pwindow, ButtonIdDown, downPressed);
+    app_window_click_subscribe(pwindow, ButtonIdSelect, selectPressed);
+
+    app_window_stack_push(pwindow);
+
+    gameStateSet(Game_Menu);
+
+    return 0;
+} // End of main()
