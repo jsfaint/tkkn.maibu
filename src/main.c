@@ -80,6 +80,8 @@ static Plane g_plane;
 static Bullet g_bullet[BULLET_NUM];
 
 //Window/Layer ID
+static int8_t g_window_id;
+
 //Game menu
 static int8_t g_banner_layer_id;
 static int8_t g_arrow_layer_id;
@@ -133,6 +135,9 @@ enum GameState gameStateGet(void);
 //Init global variables
 void initVariables(void)
 {
+    //window
+    g_window_id = -1;
+
     //Menu
     g_banner_layer_id = -1;
     g_arrow_layer_id = -1;
@@ -166,7 +171,11 @@ void gameInit(P_Window pwindow, bool init)
 
 void backPressed(void *context)
 {
-    P_Window pwindow = (P_Window)context;
+    P_Window pwindow = app_window_stack_get_window_by_id(g_window_id);
+    if (pwindow == NULL) {
+        return;
+    }
+
     enum GameState stat = gameStateGet();
 
     if (stat == Game_About) {
@@ -189,7 +198,11 @@ void backPressed(void *context)
 
 void upPressed(void *context)
 {
-    P_Window pwindow = (P_Window)context;
+    P_Window pwindow = app_window_stack_get_window_by_id(g_window_id);
+    if (pwindow == NULL) {
+        return;
+    }
+
     enum GameState stat = gameStateGet();
     int i;
 
@@ -206,14 +219,21 @@ void upPressed(void *context)
 
 void downPressed(void *context)
 {
-    P_Window pwindow = (P_Window)context;
+    P_Window pwindow = app_window_stack_get_window_by_id(g_window_id);
+    if (pwindow == NULL) {
+        return;
+    }
 
     //TODO: menu select down
 }
 
 void selectPressed(void *context)
 {
-    P_Window pwindow = (P_Window)context;
+    P_Window pwindow = app_window_stack_get_window_by_id(g_window_id);
+    if (pwindow == NULL) {
+        return;
+    }
+
     enum GameState stat = gameStateGet();
 
     if (stat == Game_Menu) {
@@ -389,7 +409,11 @@ bool checkCollision(void)
 
 void run(date_time_t dt, uint32_t millis, void* context)
 {
-    P_Window pwindow = (P_Window)context;
+    P_Window pwindow = app_window_stack_get_window_by_id(g_window_id);
+    if (pwindow == NULL) {
+        return;
+    }
+
     enum GameState stat = gameStateGet();
 
     if (pwindow == NULL) {
@@ -742,15 +766,14 @@ int main(int argc, char ** argv)
 
     gameLayerVisible(pwindow, Game_Menu);
 
-    app_window_timer_subscribe(pwindow, TIMER_INTERVAL, run, pwindow);
+    g_window_id = app_window_stack_push(pwindow);
+
+    app_window_timer_subscribe(pwindow, TIMER_INTERVAL, run, NULL);
 
     app_window_click_subscribe(pwindow, ButtonIdUp, upPressed);
     app_window_click_subscribe(pwindow, ButtonIdBack, backPressed);
     app_window_click_subscribe(pwindow, ButtonIdDown, downPressed);
     app_window_click_subscribe(pwindow, ButtonIdSelect, selectPressed);
-
-    app_window_stack_push(pwindow);
-
     gameStateSet(Game_Menu);
 
     return 0;
