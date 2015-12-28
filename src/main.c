@@ -9,7 +9,7 @@
 #define TITLE   "特训 for 麦步"
 #define AUTHOR  "Jia Sui"
 #define EMAIL   "jsfaint@gmail.com"
-#define VERSION "0.3"
+#define VERSION "0.3.1"
 
 #define SCREEN_WIDTH    128
 #define SCREEN_HEIGHT   128
@@ -171,10 +171,7 @@ void gameInit(P_Window pwindow, bool init)
 
 void backPressed(void *context)
 {
-    P_Window pwindow = app_window_stack_get_window_by_id(g_window_id);
-    if (pwindow == NULL) {
-        return;
-    }
+    P_Window pwindow = (P_Window)context;
 
     enum GameState stat = gameStateGet();
 
@@ -198,10 +195,7 @@ void backPressed(void *context)
 
 void upPressed(void *context)
 {
-    P_Window pwindow = app_window_stack_get_window_by_id(g_window_id);
-    if (pwindow == NULL) {
-        return;
-    }
+    P_Window pwindow = (P_Window)context;
 
     enum GameState stat = gameStateGet();
     int i;
@@ -219,20 +213,14 @@ void upPressed(void *context)
 
 void downPressed(void *context)
 {
-    P_Window pwindow = app_window_stack_get_window_by_id(g_window_id);
-    if (pwindow == NULL) {
-        return;
-    }
+    P_Window pwindow = (P_Window)context;
 
     //TODO: menu select down
 }
 
 void selectPressed(void *context)
 {
-    P_Window pwindow = app_window_stack_get_window_by_id(g_window_id);
-    if (pwindow == NULL) {
-        return;
-    }
+    P_Window pwindow = (P_Window)context;
 
     enum GameState stat = gameStateGet();
 
@@ -766,14 +754,15 @@ int main(int argc, char ** argv)
 
     gameLayerVisible(pwindow, Game_Menu);
 
-    g_window_id = app_window_stack_push(pwindow);
-
     app_window_timer_subscribe(pwindow, TIMER_INTERVAL, run, NULL);
 
     app_window_click_subscribe(pwindow, ButtonIdUp, upPressed);
     app_window_click_subscribe(pwindow, ButtonIdBack, backPressed);
     app_window_click_subscribe(pwindow, ButtonIdDown, downPressed);
     app_window_click_subscribe(pwindow, ButtonIdSelect, selectPressed);
+
+    g_window_id = app_window_stack_push(pwindow);
+
     gameStateSet(Game_Menu);
 
     return 0;
