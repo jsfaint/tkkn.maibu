@@ -86,6 +86,7 @@ static int8_t g_window_id;
 static int8_t g_banner_layer_id;
 static int8_t g_arrow_layer_id;
 static int8_t g_menu_start_layer_id;
+static int8_t g_version_layer_id;
 
 //Game Play
 static int8_t g_plane_layer_id;
@@ -142,6 +143,7 @@ void initVariables(void)
     g_banner_layer_id = -1;
     g_arrow_layer_id = -1;
     g_menu_start_layer_id = -1;
+    g_version_layer_id = -1;
 
     //Play
     g_plane_layer_id = -1;
@@ -602,6 +604,9 @@ void gameLayerInit(P_Window pwindow)
     //start
     layer = bmpOut(49, 95, 9, 29, RES_BITMAP_START);
     gameLayer(pwindow, &g_menu_start_layer_id, layer);
+    //version
+    layer = textOut(VERSION, 99, 115, 12, 28, GAlignBottomRight, U_ASCII_ARIAL_12);
+    gameLayer(pwindow, &g_version_layer_id, layer);
 
     /* Play */
     //message
@@ -660,6 +665,7 @@ void gameLayerVisible(P_Window pwindow, enum GameState stat)
     bool banner;
     bool arrow;
     bool start;
+    bool version;
 
     //Game play
     bool plane;
@@ -675,6 +681,7 @@ void gameLayerVisible(P_Window pwindow, enum GameState stat)
         banner = true;
         arrow = true;
         start = true;
+        version = true;
         plane = false;
         bullet = false;
         message = false;
@@ -685,6 +692,7 @@ void gameLayerVisible(P_Window pwindow, enum GameState stat)
         banner = false;
         arrow = false;
         start = false;
+        version = false;
         plane = true;
         bullet = true;
         message = true;
@@ -697,6 +705,7 @@ void gameLayerVisible(P_Window pwindow, enum GameState stat)
         banner = false;
         arrow = true;
         start = false;
+        version = true;
         plane = false;
         bullet = false;
         message = false;
@@ -711,6 +720,7 @@ void gameLayerVisible(P_Window pwindow, enum GameState stat)
     layerVisible(pwindow, g_banner_layer_id, banner);
     layerVisible(pwindow, g_arrow_layer_id, arrow);
     layerVisible(pwindow, g_menu_start_layer_id, start);
+    layerVisible(pwindow, g_version_layer_id, version);
 
     //Play
     layerVisible(pwindow, g_plane_layer_id, plane);
