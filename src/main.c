@@ -406,10 +406,6 @@ void run(date_time_t dt, uint32_t millis, void* context)
 
     enum GameState stat = gameStateGet();
 
-    if (pwindow == NULL) {
-        return;
-    }
-
     gameCounterUpdate(millis);
 
     if (stat == Game_Play) {
