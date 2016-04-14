@@ -1,6 +1,6 @@
 @echo off
 set TL_PATH=d:\maibu\gcc-arm-none-eabi\bin
-set PACK_PATH=D:\maibu\Pack\
+set PACK_PATH=D:\maibu\VisualMWatch_W64
 
 cls
 mkdir build
@@ -12,7 +12,7 @@ del .\build\maibu_code
 del OUT.maibu
 
 echo ÕýÔÚ±àÒë...
-%TL_PATH%\arm-none-eabi-gcc -c -mthumb -mcpu=cortex-m0 .\src\*.c -I%PACK_PATH%\include\
+%TL_PATH%\arm-none-eabi-gcc -c -mthumb -mcpu=cortex-m0 .\src\*.c -I%PACK_PATH%\SDK\
 %TL_PATH%\arm-none-eabi-ld -r .\*.o -o .\build\maibu_code
 %TL_PATH%\arm-none-eabi-readelf -a .\build\maibu_code> elf.log
 
