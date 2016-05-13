@@ -80,7 +80,7 @@ static Plane g_plane;
 static Bullet g_bullet[BULLET_NUM];
 
 //Window/Layer ID
-static int8_t g_window_id;
+static int32_t g_window_id;
 
 //Game menu
 static int8_t g_banner_layer_id;
@@ -626,7 +626,7 @@ void gameLayerInit(P_Window pwindow)
 void gameResult(P_Window pwindow)
 {
     char str[10];
-    char buf[50];
+    unsigned char buf[50];
 
     planeExplode(pwindow);
 
