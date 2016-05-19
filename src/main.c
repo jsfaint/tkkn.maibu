@@ -9,7 +9,7 @@
 #define TITLE   "特训 for 麦步"
 #define AUTHOR  "Jia Sui"
 #define EMAIL   "jsfaint@gmail.com"
-#define VERSION "0.3.1"
+#define VERSION "0.3.2"
 
 #define SCREEN_WIDTH    128
 #define SCREEN_HEIGHT   128
