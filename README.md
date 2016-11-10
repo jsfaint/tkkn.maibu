@@ -31,5 +31,3 @@ Chinese introduction below
 
 欢迎打赏~
 支付宝: jsfaint@gmail.com
-
-![jsfaint@gmail.com](https://mobilecodec.alipay.com/show.htm?code=aex08289pjdxyaysakc1vaa&picSize=430)
